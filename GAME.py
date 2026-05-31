@@ -35,3 +35,37 @@ C_SHADOW_E = (30, 10, 50)
 screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
 pygame.display.set_caption(" Monstera Eclipse ")
 clock = pygame.time.Clock()
+
+
+def load_font(size, bold=False):
+    try:
+        return pygame.font.SysFont("segoeui", size, bold=bold)
+    except:
+        return pygame.font.Font(None, size)
+
+
+F_TITLE = load_font(64, bold=True)
+F_BIG = load_font(36, bold=True)
+F_MED = load_font(24, bold=True)
+F_SMALL = load_font(18)
+F_TINY = load_font(14)
+
+
+def draw_rounded_rect(surf, color, rect, radius=12, border=0, border_color=None):
+    pygame.draw.rect(surf, color, rect, border_radius=radius)
+    if border and border_color:
+        pygame.draw.rect(surf, border_color, rect, border, border_radius=radius)
+
+
+def draw_text_centered(surf, text, font, color, cx, cy):
+    s = font.render(text, True, color)
+    surf.blit(s, (cx - s.get_width() // 2, cy - s.get_height() // 2))
+
+
+def draw_text(surf, text, font, color, x, y):
+    s = font.render(text, True, color)
+    surf.blit(s, (x, y))
+
+
+def lerp_color(c1, c2, t):
+    return tuple(int(c1[i] + (c2[i] - c1[i]) * t) for i in range(3))
