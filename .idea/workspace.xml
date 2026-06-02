@@ -4,16 +4,28 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="5a49c70a-d17b-44bc-a386-935ec24010f8" name="Changes" comment="">
+    <list default="true" id="5a49c70a-d17b-44bc-a386-935ec24010f8" name="Changes" comment="menambahkan menu screen">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/GAME.py" beforeDir="false" afterPath="$PROJECT_DIR$/GAME.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/game.py" beforeDir="false" afterPath="$PROJECT_DIR$/game.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="all_game" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -45,14 +57,14 @@
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "FONTSdanUTILITY",
+    "git-widget-placeholder": "f5cab6c8",
     "last_opened_file_path": "C:/Projek_GAME_PBO",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
+    "settings.editor.selected.configurable": "com.intellij.python.lsp.core.PyTypeEngineConfigurable"
   }
 }]]></component>
   <component name="RunManager">
@@ -96,9 +108,49 @@
       <option name="presentableId" value="Default" />
       <updated>1779859159070</updated>
     </task>
+    <task id="LOCAL-00001" summary="menambahkan config">
+      <option name="closed" value="true" />
+      <created>1780232078860</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1780232078860</updated>
+    </task>
+    <task id="LOCAL-00002" summary="menambahkan main">
+      <option name="closed" value="true" />
+      <created>1780232101780</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1780232101780</updated>
+    </task>
+    <task id="LOCAL-00003" summary="menambahkan game">
+      <option name="closed" value="true" />
+      <created>1780232770490</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1780232770490</updated>
+    </task>
+    <task id="LOCAL-00004" summary="menambahkan menu screen">
+      <option name="closed" value="true" />
+      <created>1780235405455</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1780235405455</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="menambahkan config" />
+    <MESSAGE value="menambahkan main" />
+    <MESSAGE value="menambahkan game" />
+    <MESSAGE value="menambahkan menu screen" />
+    <option name="LAST_COMMIT_MESSAGE" value="menambahkan menu screen" />
   </component>
 </project>
