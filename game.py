@@ -1,11 +1,15 @@
+"""Logic game MONSTERA ECLIPSE: class karakter, battle engine, dan screen.
+"""
+
 import pygame
 import sys
 import random
 import math
 
 from config import *
+from aset_game import asset_manager
 
-# PARTICLE SYSTEM
+# ─── PARTICLE SYSTEM ─────────────────────────────────────────────────────────
 class Particle:
     def __init__(self, x, y, color, vx=None, vy=None, life=None, size=None):
         self.x = x
@@ -46,12 +50,16 @@ def update_particles(surf):
         if p.life <= 0:
             particles.remove(p)
 
-
+# ══════════════════════════════════════════════════════════════════════════════
 #  ABSTRACTION & INHERITANCE — Base Classes
-
+# ══════════════════════════════════════════════════════════════════════════════
 
 class Character:
-
+    """
+    [ABSTRACTION] Base abstract class untuk semua karakter.
+    Mendefinisikan interface umum tanpa implementasi detail.
+    [ENCAPSULATION] Semua atribut diakses melalui property/method.
+    """
     def __init__(self, name: str, max_hp: int, attack: int,
                  defense: int, speed: int, color: tuple):
         self._name    = name        # Encapsulated attributes
@@ -86,7 +94,7 @@ class Character:
     def skills(self):    return self._skills
 
     def take_damage(self, raw_dmg: int) -> int:
-
+        """Encapsulated damage calculation with defense."""
         actual = max(1, raw_dmg - self._defense)
         self._hp = max(0, self._hp - actual)
         if self._hp == 0:
@@ -109,11 +117,12 @@ class Character:
         raise NotImplementedError
 
     def use_skill(self, skill_index: int, targets: list, allies: list) -> dict:
+        """[POLYMORPHISM] Each subclass overrides skill behavior."""
         raise NotImplementedError
 
 
 class Skill:
-
+    """Encapsulated skill data."""
     def __init__(self, name, description, skill_type, power, color, icon):
         self.name        = name
         self.description = description
@@ -123,12 +132,12 @@ class Skill:
         self.icon        = icon
 
 
-
+# ══════════════════════════════════════════════════════════════════════════════
 #  HERO CLASSES — Inheritance from Character
-
+# ══════════════════════════════════════════════════════════════════════════════
 
 class Hero(Character):
-
+    """[INHERITANCE] Base hero class inherits from Character."""
     def __init__(self, name, max_hp, attack, defense, speed, color, role):
         super().__init__(name, max_hp, attack, defense, speed, color)
         self._role = role
@@ -144,7 +153,10 @@ class Hero(Character):
 
 
 class Warrior(Hero):
-
+    """
+    [INHERITANCE] Warrior extends Hero.
+    [POLYMORPHISM] Overrides use_skill with warrior-specific behavior.
+    """
     def __init__(self, name="Verdant Knight"):
         super().__init__(name, max_hp=180, attack=35, defense=20,
                          speed=12, color=C_GREEN, role="Warrior")
@@ -180,7 +192,7 @@ class Warrior(Hero):
 
 
 class Mage(Hero):
-
+    """[INHERITANCE + POLYMORPHISM] Magic-based hero."""
     def __init__(self, name="Flora Sorceress"):
         super().__init__(name, max_hp=110, attack=55, defense=8,
                          speed=16, color=C_PURPLE, role="Mage")
@@ -210,7 +222,7 @@ class Mage(Hero):
 
 
 class Healer(Hero):
-
+    """[INHERITANCE + POLYMORPHISM] Support/heal-focused hero."""
     def __init__(self, name="Bloom Sage"):
         super().__init__(name, max_hp=130, attack=22, defense=14,
                          speed=14, color=C_HEAL, role="Healer")
@@ -247,7 +259,7 @@ class Healer(Hero):
 
 
 class Ranger(Hero):
-
+    """[INHERITANCE + POLYMORPHISM] Balanced ranged hero."""
     def __init__(self, name="Moss Hunter"):
         super().__init__(name, max_hp=145, attack=40, defense=12,
                          speed=18, color=C_GOLD, role="Ranger")
@@ -282,12 +294,11 @@ class Ranger(Hero):
         return result
 
 
-
+# ══════════════════════════════════════════════════════════════════════════════
 #  ENEMY CLASSES — Inheritance from Character
-
+# ══════════════════════════════════════════════════════════════════════════════
 
 class Enemy(Character):
-
     """[INHERITANCE] Base enemy class."""
     def __init__(self, name, max_hp, attack, defense, speed, color, tier=1):
         super().__init__(name, max_hp, attack, defense, speed, color)
@@ -304,7 +315,6 @@ class Enemy(Character):
 
 
 class Shadow(Enemy):
-
     """[INHERITANCE + POLYMORPHISM] Fast striker enemy."""
     def __init__(self, tier=1):
         mult = 1 + (tier-1)*0.3
@@ -339,7 +349,6 @@ class Shadow(Enemy):
 
 
 class DarkMage(Enemy):
-
     """[INHERITANCE + POLYMORPHISM] AOE magic enemy."""
     def __init__(self, tier=1):
         mult = 1 + (tier-1)*0.3
@@ -376,12 +385,12 @@ class DarkMage(Enemy):
             return self.use_skill(0, [target], [])
 
 
-
+# ══════════════════════════════════════════════════════════════════════════════
 #  BATTLE ENGINE
-
+# ══════════════════════════════════════════════════════════════════════════════
 
 class BattleEngine:
-
+    """Manages battle state, log, and winner checking."""
     def __init__(self, heroes: list, enemies: list):
         self.heroes  = heroes
         self.enemies = enemies
@@ -407,6 +416,7 @@ class BattleEngine:
             self.winner = "hero"
 
     def enemy_use_turn(self, enemy: Enemy):
+        """1 enemy menyerang 1 kali, bukan semua enemy sekaligus."""
         if not enemy.alive:
             return {"log": [], "particles": []}
         res = enemy.ai_turn(self.alive_heroes())
@@ -416,6 +426,7 @@ class BattleEngine:
         return res
 
     def hero_use_skill(self, hero: Hero, skill_idx: int, targets: list):
+        """1 hero menyerang 1 kali sesuai skill yang dipilih."""
         res = hero.use_skill(skill_idx, targets, self.alive_heroes())
         for msg in res["log"]:
             self.add_log(msg)
@@ -423,12 +434,11 @@ class BattleEngine:
         return res
 
 
-
+# ══════════════════════════════════════════════════════════════════════════════
 #  UI COMPONENTS
-
+# ══════════════════════════════════════════════════════════════════════════════
 
 class Button:
-
     def __init__(self, rect, text, color, hover_color, font=None, text_color=C_WHITE, radius=10):
         self.rect        = pygame.Rect(rect)
         self.text        = text
@@ -455,7 +465,6 @@ class Button:
 
 
 class HPBar:
-
     def __init__(self, x, y, w, h, char: Character):
         self.x = x; self.y = y; self.w = w; self.h = h
         self.char = char
@@ -486,12 +495,36 @@ class HPBar:
                              self.y + self.h//2 - hp_text.get_height()//2))
 
 
-
+# ══════════════════════════════════════════════════════════════════════════════
 #  GAME SCREENS
+# ══════════════════════════════════════════════════════════════════════════════
 
+
+
+def get_character_asset_key(char):
+    """Menentukan aset gambar berdasarkan class karakter."""
+    if isinstance(char, Warrior):
+        return "warrior"
+    if isinstance(char, Mage):
+        return "mage"
+    if isinstance(char, Healer):
+        return "healer"
+    if isinstance(char, Ranger):
+        return "ranger"
+    if isinstance(char, Shadow):
+        return "shadow"
+    if isinstance(char, DarkMage):
+        return "dark_mage"
+    return None
+
+
+def draw_character_sprite_or_icon(surf, char, center, size, fallback_font, flip=False):
+    key = get_character_asset_key(char)
+    if key and asset_manager.draw_sprite(surf, key, center, size=size, flip=flip):
+        return
+    draw_text_centered(surf, char.get_role_icon(), fallback_font, char.color, center[0], center[1])
 
 class MenuScreen:
-
     def __init__(self):
         self.tick = 0
         self.buttons = [
@@ -544,7 +577,6 @@ class MenuScreen:
 
 
 class SettingsScreen:
-
     def __init__(self, music_on):
         self.music_on = music_on
         self.back_btn = Button((30, 30, 120, 40), "← Back", C_PANEL2, C_PANEL, F_SMALL)
@@ -578,7 +610,6 @@ class SettingsScreen:
 
 
 class PartySelectScreen:
-
     HERO_CLASSES = [Warrior, Mage, Healer, Ranger]
     HERO_NAMES   = ["Verdant Knight", "Flora Sorceress", "Bloom Sage", "Moss Hunter"]
     HERO_ROLES   = ["Warrior ⚔️", "Mage 🔮", "Healer 💚", "Ranger 🏹"]
@@ -644,9 +675,11 @@ class PartySelectScreen:
             draw_rounded_rect(screen, bg, r, 16, border=2 if not sel else 3, border_color=border_col)
 
             cx = r.centerx
-            # Icon
-            icon = F_TITLE.render(["⚔️","🔮","💚","🏹"][i], True, self.HERO_COLORS[i])
-            screen.blit(icon, (cx - icon.get_width()//2, r.y + 12))
+            # Sprite / icon asset
+            asset_key = ["warrior", "mage", "healer", "ranger"][i]
+            if not asset_manager.draw_sprite(screen, asset_key, (cx, r.y + 48), size=(76, 76)):
+                icon = F_TITLE.render(["⚔️","🔮","💚","🏹"][i], True, self.HERO_COLORS[i])
+                screen.blit(icon, (cx - icon.get_width()//2, r.y + 12))
             # Role
             draw_text_centered(screen, self.HERO_ROLES[i], F_MED, self.HERO_COLORS[i], cx, r.y+90)
             draw_text_centered(screen, self.HERO_NAMES[i], F_SMALL, C_WHITE, cx, r.y+118)
@@ -669,7 +702,13 @@ class PartySelectScreen:
 
 
 class BattleScreen:
-
+    """
+    Battle system baru:
+    - Player memilih hero mana yang mau bergerak.
+    - Setelah 1 hero memakai skill, 1 musuh menyerang balik.
+    - Hero yang sudah menyerang diberi label DONE sampai ronde berikutnya.
+    - Target single attack bisa dipilih dengan klik kartu enemy.
+    """
     def __init__(self, heroes: list):
         self.heroes  = heroes
         self.enemies = self._gen_enemies()
@@ -961,12 +1000,12 @@ class BattleScreen:
                 draw_text_centered(screen, "▼ TARGET", F_TINY, C_GOLD, rect.centerx, rect.bottom+12)
             if self.last_actor is enemy:
                 draw_text_centered(screen, "ACTION", F_TINY, C_RED, rect.centerx, rect.top-10)
-            draw_text_centered(screen, enemy.get_role_icon(), F_BIG, enemy.color, rect.centerx, rect.y+22)
-            draw_text_centered(screen, enemy.name, F_TINY, C_WHITE, rect.centerx, rect.y+52)
+            draw_character_sprite_or_icon(screen, enemy, (rect.centerx, rect.y+30), (56, 56), F_BIG, flip=True)
+            draw_text_centered(screen, enemy.name, F_TINY, C_WHITE, rect.centerx, rect.y+58)
             bar = self.hp_bars_e[enemy]
-            bar.x = rect.x+8; bar.y = rect.y+68; bar.w = rect.w-16; bar.h = 14
+            bar.x = rect.x+8; bar.y = rect.y+70; bar.w = rect.w-16; bar.h = 14
             bar.draw(screen)
-            draw_text_centered(screen, f"ATK:{enemy.attack} DEF:{enemy.defense}", F_TINY, C_GRAY, rect.centerx, rect.y+88)
+            draw_text_centered(screen, f"ATK:{enemy.attack} DEF:{enemy.defense}", F_TINY, C_GRAY, rect.centerx, rect.y+90)
 
     def _draw_heroes(self):
         for i, (hero, rect) in enumerate(zip(self.heroes, self.hero_rects)):
@@ -996,13 +1035,13 @@ class BattleScreen:
                                  (0,0,rect.w+20,rect.h+20), border_radius=14)
                 screen.blit(g_surf, (rect.x-10, rect.y-10))
 
-            draw_text_centered(screen, hero.get_role_icon(), F_MED, hero.color, rect.centerx, rect.y+18)
-            draw_text_centered(screen, hero.name, F_TINY, C_WHITE if not already_acted else C_GRAY, rect.centerx, rect.y+40)
-            draw_text_centered(screen, hero.role,  F_TINY, hero.color if not already_acted else C_GRAY, rect.centerx, rect.y+56)
+            draw_character_sprite_or_icon(screen, hero, (rect.centerx, rect.y+30), (58, 58), F_MED)
+            draw_text_centered(screen, hero.name, F_TINY, C_WHITE if not already_acted else C_GRAY, rect.centerx, rect.y+58)
+            draw_text_centered(screen, hero.role,  F_TINY, hero.color if not already_acted else C_GRAY, rect.centerx, rect.y+72)
             bar = self.hp_bars_h[hero]
-            bar.x = rect.x+8; bar.y = rect.y+72; bar.w = rect.w-16; bar.h = 14
+            bar.x = rect.x+8; bar.y = rect.y+84; bar.w = rect.w-16; bar.h = 14
             bar.draw(screen)
-            draw_text_centered(screen, f"ATK:{hero.attack} DEF:{hero.defense}", F_TINY, C_GRAY, rect.centerx, rect.y+93)
+            draw_text_centered(screen, f"ATK:{hero.attack} DEF:{hero.defense}", F_TINY, C_GRAY, rect.centerx, rect.y+104)
 
             if is_selected:
                 draw_text_centered(screen, "▲ ACTIVE", F_TINY, C_GREEN, rect.centerx, rect.top-12)
