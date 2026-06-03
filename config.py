@@ -6,9 +6,9 @@ pygame.init()
 pygame.mixer.init()
 
 
-# ┌─────────────────────────────────────────────────────┐
-# │  [1] KONSTANTA LAYAR & FPS                          │
-# └─────────────────────────────────────────────────────┘
+
+#   [1] KONSTANTA LAYAR & FPS
+
 
 SCREEN_W, SCREEN_H = 1100, 700
 FPS = 60
@@ -18,9 +18,9 @@ pygame.display.set_caption("🌿 Monstera Eclipse 🌑")
 clock = pygame.time.Clock()
 
 
-# ┌─────────────────────────────────────────────────────┐
-# │  [2] PALET WARNA                                    │
-# └─────────────────────────────────────────────────────┘
+
+#   [2] PALET WARNA
+
 
 # Background & panel
 C_BG      = (8,   12,  20)
@@ -56,9 +56,9 @@ C_GRAY2   = (60,   70,  90)
 C_SHADOW_E = (30,  10,  50)
 
 
-# ┌─────────────────────────────────────────────────────┐
-# │  [3] FONT                                           │
-# └─────────────────────────────────────────────────────┘
+
+#   [3] FONT
+
 
 def _load_font(size, bold=False):
     try:
@@ -73,43 +73,36 @@ F_SMALL = _load_font(18)              # teks biasa
 F_TINY  = _load_font(14)              # teks kecil / stat
 
 
-# ┌─────────────────────────────────────────────────────┐
-# │  [4] FUNGSI UTILITAS GAMBAR                         │
-# └─────────────────────────────────────────────────────┘
+
+#   [4] FUNGSI UTILITAS GAMBAR
+
 
 def draw_rounded_rect(surf, color, rect, radius=12, border=0, border_color=None):
-    """Gambar rect dengan sudut membulat, opsional border berwarna."""
     pygame.draw.rect(surf, color, rect, border_radius=radius)
     if border and border_color:
         pygame.draw.rect(surf, border_color, rect, border, border_radius=radius)
 
 
 def draw_text_centered(surf, text, font, color, cx, cy):
-    """Render teks di tengah koordinat (cx, cy)."""
     s = font.render(text, True, color)
     surf.blit(s, (cx - s.get_width() // 2, cy - s.get_height() // 2))
 
 
 def draw_text(surf, text, font, color, x, y):
-    """Render teks di koordinat kiri-atas (x, y)."""
     s = font.render(text, True, color)
     surf.blit(s, (x, y))
 
 
 def lerp_color(c1, c2, t):
-    """Interpolasi linier antara dua warna. t = 0.0 → c1, t = 1.0 → c2."""
     return tuple(int(c1[i] + (c2[i] - c1[i]) * t) for i in range(3))
 
 
-# ┌─────────────────────────────────────────────────────┐
-# │  [5] SISTEM PARTIKEL                                │
-# └─────────────────────────────────────────────────────┘
+
+#   [5] SISTEM PARTIKEL
+
 
 class Particle:
-    """
-    Satu partikel visual — muncul saat serangan / heal.
-    Bergerak, memudar, lalu hilang ketika life habis.
-    """
+
     def __init__(self, x, y, color, vx=None, vy=None, life=None, size=None):
         self.x        = x
         self.y        = y
@@ -140,7 +133,6 @@ particles: list = []
 
 
 def spawn_particles(x, y, color, count=15, spread=20):
-    """Tambah sejumlah partikel di sekitar (x, y)."""
     for _ in range(count):
         px = x + random.randint(-spread, spread)
         py = y + random.randint(-spread, spread)
@@ -148,7 +140,6 @@ def spawn_particles(x, y, color, count=15, spread=20):
 
 
 def update_particles(surf):
-    """Update + gambar semua partikel; buang yang sudah mati."""
     for p in particles[:]:
         p.update()
         p.draw(surf)
@@ -156,23 +147,10 @@ def update_particles(surf):
             particles.remove(p)
 
 
-# ┌─────────────────────────────────────────────────────┐
-# │  [6] KOMPONEN UI — Button & HPBar                   │
-# └─────────────────────────────────────────────────────┘
+#  [6] KOMPONEN UI — Button & HPBar
+
 
 class Button:
-    """
-    Tombol klik dengan efek hover.
-
-    Params:
-        rect        : (x, y, w, h)
-        text        : label yang ditampilkan
-        color       : warna normal
-        hover_color : warna saat kursor di atasnya
-        font        : pygame.Font (default F_MED)
-        text_color  : warna teks
-        radius      : kelengkungan sudut
-    """
 
     def __init__(self, rect, text, color, hover_color,
                  font=None, text_color=None, radius=10):
@@ -202,14 +180,6 @@ class Button:
 
 
 class HPBar:
-    """
-    Bar HP animasi smooth (lerp) dengan warna dinamis.
-
-    Warna:
-        > 60%  → hijau
-        30-60% → emas
-        < 30%  → merah
-    """
 
     def __init__(self, x, y, w, h, char):
         self.x    = x
@@ -220,7 +190,6 @@ class HPBar:
         self._display_hp = float(char.hp)
 
     def update(self):
-        """Gerakkan display HP perlahan mendekati HP aktual."""
         self._display_hp += (self.char.hp - self._display_hp) * 0.12
 
     def draw(self, surf):
