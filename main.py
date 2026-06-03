@@ -81,7 +81,6 @@ class MenuScreen:
                            F_TINY, C_GRAY2, SCREEN_W // 2, SCREEN_H - 20)
 
 class SettingsScreen:
-    """Toggle musik on/off, tombol kembali ke menu."""
 
     def __init__(self, music_on: bool):
         self.music_on  = music_on
@@ -121,10 +120,6 @@ class SettingsScreen:
 
 
 class PartySelectScreen:
-    """
-    Pilih 1-3 hero sebelum battle.
-    Klik kartu untuk memilih / batal pilih.
-    """
 
     HERO_CLASSES = [Warrior, Mage,             Healer,         Ranger]
     HERO_NAMES   = ["Verdant Knight", "Flora Sorceress", "Bloom Sage", "Moss Hunter"]
@@ -213,15 +208,7 @@ class PartySelectScreen:
 
 
 def main():
-    """
-    Loop utama game.
 
-    State:
-        "menu"         → MenuScreen
-        "settings"     → SettingsScreen
-        "select_party" → PartySelectScreen
-        "battle"       → BattleScreen (dari game.py)
-    """
     state        = "menu"
     music_on     = False
     menu_scr     = MenuScreen()

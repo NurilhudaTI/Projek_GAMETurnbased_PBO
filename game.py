@@ -1,16 +1,3 @@
-"""
-╔══════════════════════════════════════════════════════╗
-║         MONSTERA ECLIPSE — game.py                  ║
-║                                                      ║
-║  Isi file ini:                                       ║
-║  [1] Skill — data satu kemampuan                     ║
-║  [2] Character — base class abstrak (OOP)            ║
-║  [3] Hero & subclass — Warrior, Mage, Healer, Ranger ║
-║  [4] Enemy & subclass — Shadow, DarkMage             ║
-║  [5] BattleEngine — giliran, log, cek menang         ║
-║  [6] BattleScreen — tampilan & input layar battle    ║
-╚══════════════════════════════════════════════════════╝
-"""
 
 import pygame
 import sys
@@ -32,23 +19,11 @@ from config import (
 )
 
 
-# ════════════════════════════════════════════════════════════════════
 #  [1] SKILL
 #      Menyimpan data satu kemampuan karakter.
-# ════════════════════════════════════════════════════════════════════
+
 
 class Skill:
-    """
-    [ENCAPSULATION] Data satu skill disimpan dalam satu objek.
-
-    skill_type:
-        "attack"  — serang 1 musuh
-        "aoe"     — serang semua musuh
-        "multi"   — serang beberapa musuh acak
-        "heal"    — pulihkan HP 1 ally
-        "heal_all"— pulihkan HP semua ally
-        "defense" — buff pertahanan diri / ally
-    """
 
     def __init__(self, name: str, description: str, skill_type: str,
                  power: float, color: tuple, icon: str):
@@ -60,20 +35,15 @@ class Skill:
         self.icon        = icon        # emoji ikon tombol
 
 
-# ════════════════════════════════════════════════════════════════════
+
 #  [2] CHARACTER — Base Class (Abstraction + Encapsulation)
-# ════════════════════════════════════════════════════════════════════
+
 
 class Character:
-    """
-    [ABSTRACTION]  Kelas dasar abstrak untuk SEMUA karakter.
-                   Mendefinisikan interface tanpa implementasi detail.
-    [ENCAPSULATION] Atribut diawali _ dan dibaca via property.
-    """
 
     def __init__(self, name: str, max_hp: int, attack: int,
                  defense: int, speed: int, color: tuple):
-        # ── Atribut privat (Encapsulation) ──────────────────────────
+        # Atribut privat (Encapsulation)
         self._name    = name
         self._max_hp  = max_hp
         self._hp      = max_hp
@@ -84,7 +54,7 @@ class Character:
         self._alive   = True
         self._skills: list[Skill] = []
 
-    # ── Properti publik ─────────────────────────────────────────────
+    # Properti publik
     @property
     def name(self):    return self._name
     @property
@@ -104,9 +74,8 @@ class Character:
     @property
     def skills(self):  return self._skills
 
-    # ── Mekanik bersama ─────────────────────────────────────────────
+    # Mekanik bersama
     def take_damage(self, raw_dmg: int) -> int:
-        """Kurangi HP setelah diperhitungkan defense. Min damage = 1."""
         actual = max(1, raw_dmg - self._defense)
         self._hp = max(0, self._hp - actual)
         if self._hp == 0:
@@ -114,7 +83,6 @@ class Character:
         return actual
 
     def heal(self, amount: int) -> int:
-        """Pulihkan HP, tidak melebihi max_hp."""
         healed = min(amount, self._max_hp - self._hp)
         self._hp += healed
         return healed
@@ -122,7 +90,7 @@ class Character:
     def hp_ratio(self) -> float:
         return self._hp / self._max_hp
 
-    # ── Interface abstrak (wajib diimplementasikan subclass) ────────
+    # Interface abstrak (wajib diimplementasikan subclass)
     def get_description(self) -> str:
         raise NotImplementedError
 
@@ -130,19 +98,13 @@ class Character:
         raise NotImplementedError
 
     def use_skill(self, skill_index: int, targets: list, allies: list) -> dict:
-        """
-        [POLYMORPHISM] Setiap subclass mengimplementasikan logikanya sendiri.
-        Return: {"skill": str, "log": [str], "particles": [(char, color)]}
-        """
         raise NotImplementedError
 
 
-# ════════════════════════════════════════════════════════════════════
 #  [3] HERO — Inheritance dari Character
-# ════════════════════════════════════════════════════════════════════
+
 
 class Hero(Character):
-    """[INHERITANCE] Kelas hero dasar. Menambahkan atribut role."""
 
     def __init__(self, name, max_hp, attack, defense, speed, color, role):
         super().__init__(name, max_hp, attack, defense, speed, color)
@@ -159,13 +121,8 @@ class Hero(Character):
         return "🌿"
 
 
-# ── Warrior ──────────────────────────────────────────────────────────────────
+# Warrior
 class Warrior(Hero):
-    """
-    [INHERITANCE + POLYMORPHISM]
-    Peran  : Tank — HP & DEF tinggi, serangan fisik.
-    Skills : Vine Slash | Root Shield | Thorn Burst (AoE) | Earth Smash
-    """
 
     def __init__(self, name="Verdant Knight"):
         super().__init__(name, max_hp=180, attack=35, defense=20,
@@ -203,13 +160,8 @@ class Warrior(Hero):
         return result
 
 
-# ── Mage ─────────────────────────────────────────────────────────────────────
+# Mage
 class Mage(Hero):
-    """
-    [INHERITANCE + POLYMORPHISM]
-    Peran  : Glass Cannon — ATK tertinggi, HP terendah.
-    Skills : Petal Storm | Spore Cloud (AoE) | Arcane Bloom | Mystic Veil
-    """
 
     def __init__(self, name="Flora Sorceress"):
         super().__init__(name, max_hp=110, attack=55, defense=8,
@@ -241,13 +193,8 @@ class Mage(Hero):
         return result
 
 
-# ── Healer ───────────────────────────────────────────────────────────────────
+# Healer
 class Healer(Hero):
-    """
-    [INHERITANCE + POLYMORPHISM]
-    Peran  : Support — menyembuhkan tim.
-    Skills : Nature's Touch | Rain of Life (heal all) | Thorn Whip | Revitalize
-    """
 
     def __init__(self, name="Bloom Sage"):
         super().__init__(name, max_hp=130, attack=22, defense=14,
@@ -289,13 +236,8 @@ class Healer(Hero):
         return result
 
 
-# ── Ranger ───────────────────────────────────────────────────────────────────
+# Ranger
 class Ranger(Hero):
-    """
-    [INHERITANCE + POLYMORPHISM]
-    Peran  : Balanced — SPD tertinggi, damage konsisten.
-    Skills : Seed Shot | Scatter Arrow (multi) | Camouflage | Eagle Strike
-    """
 
     def __init__(self, name="Moss Hunter"):
         super().__init__(name, max_hp=145, attack=40, defense=12,
@@ -333,12 +275,10 @@ class Ranger(Hero):
         return result
 
 
-# ════════════════════════════════════════════════════════════════════
 #  [4] ENEMY — Inheritance dari Character
-# ════════════════════════════════════════════════════════════════════
+
 
 class Enemy(Character):
-    """[INHERITANCE] Kelas musuh dasar. Menambahkan tier (level scaling)."""
 
     def __init__(self, name, max_hp, attack, defense, speed, color, tier=1):
         super().__init__(name, max_hp, attack, defense, speed, color)
@@ -358,12 +298,8 @@ class Enemy(Character):
         raise NotImplementedError
 
 
-# ── Shadow ───────────────────────────────────────────────────────────────────
+# Shadow
 class Shadow(Enemy):
-    """
-    [INHERITANCE + POLYMORPHISM]
-    AI: incar hero HP terendah; 30% gunakan Void Strike (damage tinggi).
-    """
 
     def __init__(self, tier=1):
         mult = 1 + (tier - 1) * 0.3
@@ -398,12 +334,8 @@ class Shadow(Enemy):
         return self.use_skill(sk_idx, [target], [])
 
 
-# ── DarkMage ─────────────────────────────────────────────────────────────────
+# DarkMage
 class DarkMage(Enemy):
-    """
-    [INHERITANCE + POLYMORPHISM]
-    AI: 40% Eclipse Blast (AoE semua hero), 60% Curse Bolt (1 hero acak).
-    """
 
     def __init__(self, tier=1):
         mult = 1 + (tier - 1) * 0.3
@@ -439,20 +371,10 @@ class DarkMage(Enemy):
         return self.use_skill(0, [random.choice(alive)], [])
 
 
-# ════════════════════════════════════════════════════════════════════
 #  [5] BATTLE ENGINE — Giliran, Log, Cek Menang
-# ════════════════════════════════════════════════════════════════════
+
 
 class BattleEngine:
-    """
-    Otak pertarungan.
-
-    Tanggung jawab:
-        - Menyimpan daftar hero & musuh
-        - Mengelola log aksi (maks 8 baris)
-        - Memproses giliran hero dan AI musuh
-        - Menentukan pemenang
-    """
 
     def __init__(self, heroes: list, enemies: list):
         self.heroes  = heroes
@@ -463,12 +385,11 @@ class BattleEngine:
         self._sort_turn_order()
 
     def _sort_turn_order(self):
-        """Urutkan berdasarkan speed, lalu acak untuk variasi."""
         all_chars = self.heroes + self.enemies
         self.turn_order = sorted(all_chars, key=lambda c: -c.speed)
         random.shuffle(self.turn_order)
 
-    # ── Helper ──────────────────────────────────────────────────────
+    # Helper
     def alive_heroes(self)  -> list: return [h for h in self.heroes  if h.alive]
     def alive_enemies(self) -> list: return [e for e in self.enemies if e.alive]
 
@@ -483,9 +404,8 @@ class BattleEngine:
         elif not self.alive_enemies():
             self.winner = "hero"
 
-    # ── Giliran ─────────────────────────────────────────────────────
+    # Giliran
     def enemy_turn(self) -> list[dict]:
-        """Semua musuh hidup melakukan aksi AI."""
         results = []
         for enemy in self.alive_enemies():
             res = enemy.ai_turn(self.alive_heroes())
@@ -496,7 +416,6 @@ class BattleEngine:
         return results
 
     def hero_use_skill(self, hero, skill_idx: int, targets: list) -> dict:
-        """Hero menggunakan skill, catat log, cek pemenang."""
         res = hero.use_skill(skill_idx, targets, self.alive_heroes())
         for msg in res["log"]:
             self.add_log(msg)
@@ -504,20 +423,10 @@ class BattleEngine:
         return res
 
 
-# ════════════════════════════════════════════════════════════════════
 #  [6] BATTLE SCREEN — Tampilan & Input Layar Pertempuran
-# ════════════════════════════════════════════════════════════════════
+
 
 class BattleScreen:
-    """
-    Layar pertempuran utama.
-
-    Fase:
-        player_turn → hero aktif pilih & gunakan skill
-        anim        → animasi pasca-skill (timer countdown)
-        enemy_turn  → semua musuh lakukan AI (langsung)
-        result      → tampilkan hasil akhir
-    """
 
     # Peta warna tombol per skill_type
     _SKILL_COLOR = {
@@ -553,14 +462,13 @@ class BattleScreen:
         self._bangun_layout()
         self._pilih_hero(0)
 
-    # ── Setup ────────────────────────────────────────────────────────
+    # Setup
     def _buat_musuh(self) -> list:
         pool  = [Shadow, DarkMage]
         count = random.randint(2, 3)
         return [random.choice(pool)(tier=1) for _ in range(count)]
 
     def _bangun_layout(self):
-        """Hitung posisi kartu hero (bawah-kiri) dan musuh (atas-kanan)."""
         hw, hh, gap = 160, 110, 14
         for i in range(len(self.heroes)):
             self.hero_rects.append(
@@ -573,7 +481,6 @@ class BattleScreen:
             self.enemy_rects.append(pygame.Rect(ex + i * (ew + gap), 14, ew, eh))
 
     def _pilih_hero(self, idx: int):
-        """Ganti hero aktif dan bangun ulang tombol skill."""
         alive = self.engine.alive_heroes()
         if not alive:
             return
@@ -593,7 +500,6 @@ class BattleScreen:
             ))
 
     def _posisi_karakter(self, char) -> tuple:
-        """Kembalikan koordinat tengah kartu karakter di layar."""
         for i, h in enumerate(self.heroes):
             if h is char and i < len(self.hero_rects):
                 return self.hero_rects[i].center
@@ -602,7 +508,7 @@ class BattleScreen:
                 return self.enemy_rects[i].center
         return (SCREEN_W // 2, SCREEN_H // 2)
 
-    # ── Update (dipanggil tiap frame) ───────────────────────────────
+    # Update (dipanggil tiap frame)
     def update(self, events) -> str:
         self.tick += 1
         mx, my = pygame.mouse.get_pos()
@@ -667,7 +573,7 @@ class BattleScreen:
 
         return "battle"
 
-    # ── Aksi gameplay ───────────────────────────────────────────────
+    # Aksi gameplay
     def _hero_gunakan_skill(self, skill_idx: int):
         alive_heroes  = self.engine.alive_heroes()
         alive_enemies = self.engine.alive_enemies()
@@ -711,7 +617,7 @@ class BattleScreen:
             self._pilih_hero(0)
         self.engine.turn += 1
 
-    # ── Draw ────────────────────────────────────────────────────────
+    # Draw
     def draw(self):
         screen.fill(C_BG)
         self._gambar_latar()
