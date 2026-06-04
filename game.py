@@ -962,6 +962,18 @@ class BattleScreen:
         self.enemy_turn_index  = 0
         self.last_actor        = None
 
+        # ── Charge animation (Warrior maju ke musuh) ──────────────────────
+        # anim_charge_hero  : hero yang sedang charge
+        # anim_charge_target: center (x,y) musuh tujuan
+        # anim_charge_phase : "charge" | "hold" | "return" | None
+        # anim_charge_timer : frame counter per sub-phase
+        # anim_hero_offset  : dict {hero_index: (offset_x, offset_y)}
+        self.anim_charge_hero   = None
+        self.anim_charge_target = None
+        self.anim_charge_phase  = None
+        self.anim_charge_timer  = 0
+        self.anim_hero_offset   = {}   # {hero_index: (ox, oy)}
+
         self.hero_rects  = []
         self.enemy_rects = []
         self.skill_btns  = []
@@ -1060,6 +1072,10 @@ class BattleScreen:
 
         if self.phase == "anim":
             self.anim_timer -= 1
+
+            # ── Update charge animation offset ───────────────────────────
+            self._update_charge_anim()
+
             if self.anim_timer <= 0:
                 if self.turn_label == "player":
                     self._do_one_enemy_turn()
@@ -1140,6 +1156,103 @@ class BattleScreen:
         self.anim_timer  = 45
         self.turn_label  = "player"
         self.phase       = "anim"
+
+        # ── Charge animation: Warrior maju ke musuh saat attack/aoe ──────
+        hero_idx = self.heroes.index(hero)
+        if isinstance(hero, Warrior) and sk.skill_type in ("attack", "aoe"):
+            # Hitung target posisi: tengah musuh (atau rata-rata semua musuh jika AOE)
+            if sk.skill_type == "aoe" and self.enemy_rects:
+                alive_rects = [self.enemy_rects[i] for i, e in enumerate(self.enemies)
+                               if e.alive and i < len(self.enemy_rects)]
+                if alive_rects:
+                    avg_x = sum(r.centerx for r in alive_rects) // len(alive_rects)
+                    avg_y = sum(r.centery for r in alive_rects) // len(alive_rects)
+                    target_center = (avg_x, avg_y)
+                else:
+                    target_center = (SCREEN_W // 2, SCREEN_H // 2)
+            else:
+                t_idx = self.selected_enemy_idx
+                if t_idx < len(self.enemy_rects):
+                    target_center = self.enemy_rects[t_idx].center
+                else:
+                    target_center = (SCREEN_W // 2, SCREEN_H // 2)
+
+            self.anim_charge_hero   = hero_idx
+            self.anim_charge_target = target_center
+            self.anim_charge_phase  = "charge"
+            self.anim_charge_timer  = 0
+            self.anim_hero_offset[hero_idx] = (0, 0)
+            # Extend anim_timer supaya cukup untuk animasi charge penuh
+            self.anim_timer = 55
+
+    def _update_charge_anim(self):
+        """
+        Update offset posisi Warrior saat animasi charge ke musuh.
+
+        Timeline (total ~55 frame):
+          charge  : frame 0–14  → maju cepat ke arah musuh
+          hold    : frame 15–24 → diam sejenak di posisi musuh (impact!)
+          return  : frame 25–54 → balik ke posisi asal secara smooth
+        """
+        if self.anim_charge_phase is None or self.anim_charge_hero is None:
+            return
+
+        hidx = self.anim_charge_hero
+        if hidx >= len(self.hero_rects):
+            self._reset_charge_anim()
+            return
+
+        home_center = self.hero_rects[hidx].center        # posisi asal hero
+        tx, ty      = self.anim_charge_target             # posisi target musuh
+
+        # Vektor dari home ke target (pendek sedikit supaya tidak numpuk di atas musuh)
+        dx = tx - home_center[0]
+        dy = ty - home_center[1]
+        dist = math.hypot(dx, dy) or 1
+        # Maju sejauh 70% jarak supaya berhenti di depan musuh, bukan di atasnya
+        reach_x = int(dx * 0.70)
+        reach_y = int(dy * 0.70)
+
+        self.anim_charge_timer += 1
+        t = self.anim_charge_timer
+
+        if self.anim_charge_phase == "charge":
+            # Easing out: mulai cepat, melambat saat hampir sampai
+            progress = min(1.0, t / 15)
+            ease     = 1 - (1 - progress) ** 2   # ease-out quad
+            ox = int(reach_x * ease)
+            oy = int(reach_y * ease)
+            self.anim_hero_offset[hidx] = (ox, oy)
+            if t >= 15:
+                self.anim_charge_phase  = "hold"
+                self.anim_charge_timer  = 0
+
+        elif self.anim_charge_phase == "hold":
+            # Diam di posisi impact — efek shake kecil
+            shake = int(math.sin(t * 1.8) * 3)
+            self.anim_hero_offset[hidx] = (reach_x + shake, reach_y)
+            if t >= 10:
+                self.anim_charge_phase  = "return"
+                self.anim_charge_timer  = 0
+
+        elif self.anim_charge_phase == "return":
+            # Ease-in kembali ke posisi asal
+            progress = min(1.0, t / 20)
+            ease     = progress ** 2             # ease-in quad (lambat dulu, lalu cepat)
+            ox = int(reach_x * (1 - ease))
+            oy = int(reach_y * (1 - ease))
+            self.anim_hero_offset[hidx] = (ox, oy)
+            if t >= 20:
+                self._reset_charge_anim()
+
+    def _reset_charge_anim(self):
+        """Bersihkan semua state charge animation."""
+        if self.anim_charge_hero is not None:
+            self.anim_hero_offset.pop(self.anim_charge_hero, None)
+        self.anim_charge_hero   = None
+        self.anim_charge_target = None
+        self.anim_charge_phase  = None
+        self.anim_charge_timer  = 0
 
     def _do_one_enemy_turn(self):
         if self.engine.winner:
@@ -1249,6 +1362,9 @@ class BattleScreen:
                              and hero.alive and hero not in self.acted_heroes)
             already_acted = hero in self.acted_heroes
 
+            # Ambil charge offset jika ada (untuk animasi Warrior maju)
+            ox, oy = self.anim_hero_offset.get(i, (0, 0))
+
             if not hero.alive:
                 draw_rounded_rect(screen, (12, 12, 16), rect, 12, border=1, border_color=C_GRAY2)
                 draw_text_centered(screen, "💀", F_MED, C_GRAY, rect.centerx, rect.centery)
@@ -1266,7 +1382,21 @@ class BattleScreen:
                                  (0, 0, rect.w + 20, rect.h + 20), border_radius=14)
                 screen.blit(g_surf, (rect.x - 10, rect.y - 10))
 
-            draw_character_sprite_or_icon(screen, hero, (rect.centerx, rect.y + 30), (58, 58), F_MED)
+            # ── Sprite: tambahkan offset charge jika warrior sedang charge ──
+            sprite_cx = rect.centerx + ox
+            sprite_cy = rect.y + 30 + oy
+
+            # Efek motion blur tipis saat charge (overlay transparan di posisi sebelumnya)
+            if ox != 0 or oy != 0:
+                blur_surf = pygame.Surface((58, 58), pygame.SRCALPHA)
+                blur_surf.set_alpha(55)
+                draw_character_sprite_or_icon(blur_surf, hero,
+                                              (29, 29), (58, 58), F_MED)
+                screen.blit(blur_surf,
+                            (sprite_cx - 29 - ox // 3, sprite_cy - 29 - oy // 3))
+
+            draw_character_sprite_or_icon(screen, hero, (sprite_cx, sprite_cy), (58, 58), F_MED)
+
             col_name = C_WHITE if not already_acted else C_GRAY
             draw_text_centered(screen, hero.name, F_TINY, col_name, rect.centerx, rect.y + 58)
             draw_text_centered(screen, hero.role, F_TINY, hero.color if not already_acted else C_GRAY,
