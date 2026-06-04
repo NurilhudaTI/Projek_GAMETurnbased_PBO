@@ -8,6 +8,7 @@ import math
 
 from config import *
 from aset_game import asset_manager, ANIM_IDLE, ANIM_RUN, ANIM_ATTACK, ANIM_HURT, ANIM_DIE
+from sfx_manager import sfx
 
 # ─── PARTICLE SYSTEM ─────────────────────────────────────────────────────────
 class Particle:
@@ -140,12 +141,12 @@ class LevelSystem:
         return self.current_level > self.MAX_LEVELS
 
     def level_label(self) -> str:
-        tier_labels = {1: "🌿 Hijau", 2: "🌑 Redup", 3: "☄️ Gelap", 4: "💀 Eclipse"}
+        tier_labels = {1: "Hijau", 2: "Redup", 3: "Gelap", 4: "Eclipse"}
         return tier_labels.get(self.tier, "??")
 
     def difficulty_stars(self) -> str:
         stars = min(5, 1 + (self.current_level - 1) // 2)
-        return "⭐" * stars + "☆" * (5 - stars)
+        return "*" * stars + "." * (5 - stars)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -240,7 +241,7 @@ class Hero(Character):
         return f"HP:{self._max_hp} ATK:{self._attack} DEF:{self._defense} SPD:{self._speed}"
 
     def get_role_icon(self):
-        return "🌿"
+        return "[+]"
 
 
 class Warrior(Hero):
@@ -248,13 +249,13 @@ class Warrior(Hero):
         super().__init__(name, max_hp=180, attack=35, defense=20,
                          speed=12, color=C_GREEN, role="Warrior")
         self._skills = [
-            Skill("Vine Slash",  "Serangan fisik kuat ke 1 musuh",         "attack",  1.4, C_GREEN,  "⚔️"),
-            Skill("Root Shield", "Pertahanan diri sendiri +20 DEF 2 turn", "defense", 0,   C_CYAN,   "🛡️"),
+            Skill("Vine Slash",  "Serangan fisik kuat ke 1 musuh",         "attack",  1.4, C_GREEN,  "[ATK]"),
+            Skill("Root Shield", "Pertahanan diri sendiri +20 DEF 2 turn", "defense", 0,   C_CYAN,   "[DEF]"),
             Skill("Thorn Burst", "Serang semua musuh dengan duri",          "aoe",     0.8, C_GREEN2, "🌵"),
             Skill("Earth Smash", "Serangan brutal ke 1 musuh",             "attack",  2.0, C_ORANGE, "💥"),
         ]
 
-    def get_role_icon(self): return "⚔️"
+    def get_role_icon(self): return "[ATK]"
 
     def use_skill(self, skill_index, targets, allies):
         sk = self._skills[skill_index]
@@ -263,13 +264,13 @@ class Warrior(Hero):
             for t in targets[:1]:
                 dmg = int(self._attack * sk.power)
                 actual = t.take_damage(dmg)
-                result["log"].append(f"{self._name} → {t.name}: {actual} DMG")
+                result["log"].append(f"{self._name} -> {t.name}: {actual} DMG")
                 result["particles"].append((t, sk.color))
         elif sk.skill_type == "aoe":
             for t in targets:
                 dmg = int(self._attack * sk.power)
                 actual = t.take_damage(dmg)
-                result["log"].append(f"{self._name} → {t.name}: {actual} DMG")
+                result["log"].append(f"{self._name} -> {t.name}: {actual} DMG")
                 result["particles"].append((t, sk.color))
         elif sk.skill_type == "defense":
             self._defense += 20
@@ -283,13 +284,13 @@ class Mage(Hero):
         super().__init__(name, max_hp=110, attack=55, defense=8,
                          speed=16, color=C_PURPLE, role="Mage")
         self._skills = [
-            Skill("Petal Storm",  "Sihir ke 1 musuh — damage tinggi",   "attack",  1.6, C_PURPLE,  "🌸"),
+            Skill("Petal Storm",  "Sihir ke 1 musuh — damage tinggi",   "attack",  1.6, C_PURPLE,  "[AOE]"),
             Skill("Spore Cloud",  "Racun ke semua musuh (ATK×0.6)",      "aoe",     0.6, C_PURPLE2, "☁️"),
-            Skill("Arcane Bloom", "Serangan sihir ultimate — 1 musuh",   "attack",  2.2, C_GOLD,    "✨"),
+            Skill("Arcane Bloom", "Serangan sihir ultimate — 1 musuh",   "attack",  2.2, C_GOLD,    ""),
             Skill("Mystic Veil",  "Lindungi 1 ally dari 1 serangan",     "defense", 0,   C_CYAN,    "🌀"),
         ]
 
-    def get_role_icon(self): return "🔮"
+    def get_role_icon(self): return "[MAG]"
 
     def use_skill(self, skill_index, targets, allies):
         sk = self._skills[skill_index]
@@ -299,7 +300,7 @@ class Mage(Hero):
             for t in tlist:
                 dmg = int(self._attack * sk.power)
                 actual = t.take_damage(dmg)
-                result["log"].append(f"{self._name} ✨ {t.name}: {actual} DMG")
+                result["log"].append(f"{self._name}  {t.name}: {actual} DMG")
                 result["particles"].append((t, sk.color))
         elif sk.skill_type == "defense":
             result["log"].append(f"{self._name} membungkus ally dengan Mystic Veil!")
@@ -312,13 +313,13 @@ class Healer(Hero):
         super().__init__(name, max_hp=130, attack=22, defense=14,
                          speed=14, color=C_HEAL, role="Healer")
         self._skills = [
-            Skill("Nature's Touch", "Pulihkan 50 HP ke 1 ally",           "heal",     50, C_HEAL,   "💚"),
-            Skill("Rain of Life",   "Pulihkan 25 HP ke semua ally",       "heal_all", 25, C_GREEN,  "🌧️"),
-            Skill("Thorn Whip",     "Serang 1 musuh dengan sulur",        "attack",   1.1,C_GREEN2, "🌿"),
+            Skill("Nature's Touch", "Pulihkan 50 HP ke 1 ally",           "heal",     50, C_HEAL,   "[HP]"),
+            Skill("Rain of Life",   "Pulihkan 25 HP ke semua ally",       "heal_all", 25, C_GREEN,  "[rain]"),
+            Skill("Thorn Whip",     "Serang 1 musuh dengan sulur",        "attack",   1.1,C_GREEN2, "[+]"),
             Skill("Revitalize",     "Pulihkan 80 HP ke ally HP terendah", "heal",     80, C_GOLD,   "⭐"),
         ]
 
-    def get_role_icon(self): return "💚"
+    def get_role_icon(self): return "[HP]"
 
     def use_skill(self, skill_index, targets, allies):
         sk = self._skills[skill_index]
@@ -326,54 +327,19 @@ class Healer(Hero):
         if sk.skill_type == "heal":
             target_ally = min(allies, key=lambda a: a.hp) if sk.name == "Revitalize" else random.choice(allies)
             healed = target_ally.heal(int(sk.power))
-            result["log"].append(f"{self._name} 💚 {target_ally.name}: +{healed} HP")
+            result["log"].append(f"{self._name} [+HP] {target_ally.name}: +{healed} HP")
             result["particles"].append((target_ally, sk.color))
         elif sk.skill_type == "heal_all":
             for a in allies:
                 healed = a.heal(int(sk.power))
-                result["log"].append(f"{self._name} 🌧️ {a.name}: +{healed} HP")
+                result["log"].append(f"{self._name} [rain] {a.name}: +{healed} HP")
                 result["particles"].append((a, sk.color))
         elif sk.skill_type == "attack":
             for t in targets[:1]:
                 dmg = int(self._attack * sk.power)
                 actual = t.take_damage(dmg)
-                result["log"].append(f"{self._name} → {t.name}: {actual} DMG")
+                result["log"].append(f"{self._name} -> {t.name}: {actual} DMG")
                 result["particles"].append((t, sk.color))
-        return result
-
-
-class Ranger(Hero):
-    def __init__(self, name="Moss Hunter"):
-        super().__init__(name, max_hp=145, attack=40, defense=12,
-                         speed=18, color=C_GOLD, role="Ranger")
-        self._skills = [
-            Skill("Seed Shot",     "Tembak 1 musuh — cepat & akurat",     "attack",  1.3, C_GOLD,   "🏹"),
-            Skill("Scatter Arrow", "Tembak 2 musuh acak",                 "multi",   1.0, C_ORANGE, "🎯"),
-            Skill("Camouflage",    "Hindari serangan berikutnya",          "defense", 0,   C_GREEN,  "🍃"),
-            Skill("Eagle Strike",  "Tembak tepat sasaran — damage kritis","attack",  1.8, C_RED,    "🦅"),
-        ]
-
-    def get_role_icon(self): return "🏹"
-
-    def use_skill(self, skill_index, targets, allies):
-        sk = self._skills[skill_index]
-        result = {"skill": sk.name, "log": [], "particles": []}
-        if sk.skill_type == "attack":
-            for t in targets[:1]:
-                dmg = int(self._attack * sk.power)
-                actual = t.take_damage(dmg)
-                result["log"].append(f"{self._name} 🏹 {t.name}: {actual} DMG")
-                result["particles"].append((t, sk.color))
-        elif sk.skill_type == "multi":
-            chosen = random.sample(targets, min(2, len(targets)))
-            for t in chosen:
-                dmg = int(self._attack * sk.power)
-                actual = t.take_damage(dmg)
-                result["log"].append(f"{self._name} 🎯 {t.name}: {actual} DMG")
-                result["particles"].append((t, sk.color))
-        elif sk.skill_type == "defense":
-            result["log"].append(f"{self._name} bersembunyi — serangan berikutnya meleset!")
-            result["particles"].append((self, sk.color))
         return result
 
 
@@ -389,7 +355,7 @@ class Enemy(Character):
     def get_description(self):
         return f"HP:{self._max_hp} ATK:{self._attack} DEF:{self._defense}"
 
-    def get_role_icon(self): return "🌑"
+    def get_role_icon(self): return "[E]"
 
     def ai_turn(self, heroes: list) -> dict:
         raise NotImplementedError
@@ -398,16 +364,16 @@ class Enemy(Character):
 class Shadow(Enemy):
     def __init__(self, tier=1):
         mult = 1 + (tier - 1) * 0.35
-        super().__init__(f"Shadow Lv{tier}",
-                         max_hp=int(80 * mult), attack=int(28 * mult),
+        super().__init__(f"Demon Lv{tier}",
+                         max_hp=int(80 * mult), attack=int(20 * mult),
                          defense=int(5 * mult), speed=20,
                          color=C_PURPLE2, tier=tier)
         self._skills = [
-            Skill("Dark Slash",  "Serangan cepat ke 1 hero",  "attack", 1.2, C_PURPLE2, "🗡️"),
-            Skill("Void Strike", "Serangan brutal ke 1 hero", "attack", 1.8, C_RED,     "💀"),
+            Skill("Dark Slash",  "Serangan cepat ke 1 hero",  "attack", 1.2, C_PURPLE2, "[S]"),
+            Skill("Void Strike", "Serangan brutal ke 1 hero", "attack", 1.8, C_RED,     "[D]"),
         ]
 
-    def get_role_icon(self): return "🌑"
+    def get_role_icon(self): return "[E]"
 
     def use_skill(self, skill_index, targets, allies):
         sk = self._skills[skill_index]
@@ -415,7 +381,7 @@ class Shadow(Enemy):
         for t in targets[:1]:
             dmg = int(self._attack * sk.power)
             actual = t.take_damage(dmg)
-            result["log"].append(f"{self._name} ⚡ {t.name}: {actual} DMG")
+            result["log"].append(f"{self._name} >> {t.name}: {actual} DMG")
             result["particles"].append((t, C_PURPLE2))
         return result
 
@@ -430,16 +396,16 @@ class Shadow(Enemy):
 class DarkMage(Enemy):
     def __init__(self, tier=1):
         mult = 1 + (tier - 1) * 0.35
-        super().__init__(f"Dark Mage Lv{tier}",
-                         max_hp=int(70 * mult), attack=int(38 * mult),
+        super().__init__(f"Frost Golem Lv{tier}",
+                         max_hp=int(70 * mult), attack=int(26 * mult),
                          defense=int(8 * mult), speed=15,
                          color=C_RED2, tier=tier)
         self._skills = [
-            Skill("Curse Bolt",    "Sihir gelap ke 1 hero",   "attack", 1.3, C_RED,  "🔥"),
-            Skill("Eclipse Blast", "Sihir AOE ke semua hero", "aoe",    0.7, C_RED2, "💣"),
+            Skill("Curse Bolt",    "Sihir gelap ke 1 hero",   "attack", 1.3, C_RED,  "[F]"),
+            Skill("Eclipse Blast", "Sihir AOE ke semua hero", "aoe",    0.7, C_RED2, "[A]"),
         ]
 
-    def get_role_icon(self): return "☄️"
+    def get_role_icon(self): return "[M]"
 
     def use_skill(self, skill_index, targets, allies):
         sk = self._skills[skill_index]
@@ -448,7 +414,7 @@ class DarkMage(Enemy):
         for t in tlist:
             dmg = int(self._attack * sk.power)
             actual = t.take_damage(dmg)
-            result["log"].append(f"{self._name} ☄️ {t.name}: {actual} DMG")
+            result["log"].append(f"{self._name} >> {t.name}: {actual} DMG")
             result["particles"].append((t, C_RED))
         return result
 
@@ -464,61 +430,124 @@ class DarkMage(Enemy):
 
 class BossEclipse(Enemy):
     """
-    [INHERITANCE + POLYMORPHISM] Boss enemy, muncul di level 7+.
-    HP dan ATK jauh lebih tinggi, punya skill khusus rage.
+    [INHERITANCE + POLYMORPHISM] Boss Golem raksasa — muncul di level 7+.
+    Punya 4 fase: Normal -> Enraged (HP<60%) -> Berserk (HP<30%) -> Desperate (HP<15%)
     """
     def __init__(self, tier=3):
-        mult = 1 + (tier - 1) * 0.4
-        super().__init__(f"Eclipse Lord Lv{tier}",
-                         max_hp=int(200 * mult), attack=int(50 * mult),
-                         defense=int(18 * mult), speed=10,
-                         color=C_RED, tier=tier)
+        mult = 1 + (tier - 1) * 0.35
+        super().__init__(f"Frost Titan Lv{tier}",
+                         max_hp=int(320 * mult), attack=int(38 * mult),
+                         defense=int(22 * mult), speed=8,
+                         color=C_BLUE, tier=tier)
         self._skills = [
-            Skill("Doom Slash",   "Tebasan gelap ke 1 hero, sangat kuat",  "attack", 1.5, C_RED,    "💢"),
-            Skill("Dark Pulse",   "Gelombang AOE ke semua hero",           "aoe",    0.8, C_RED2,   "🌊"),
-            Skill("Eclipse Rage", "Berserk — ATK ×1.5 turn ini",          "buff",   0,   C_PURPLE2,"😡"),
+            Skill("Glacier Smash",  "Hantaman es ke 1 hero",              "attack", 1.3, C_BLUE,    "[G]"),
+            Skill("Blizzard",       "Badai es AOE ke semua hero",         "aoe",    0.6, C_CYAN,    "[ICE]"),
+            Skill("Frost Armor",    "Pertahanan diri — DEF naik sementara","buff",  0,   C_CYAN,    "[DEF]"),
+            Skill("Permafrost",     "Serang 2 hero terkuat sekaligus",    "multi",  1.1, C_PURPLE,  "[D]"),
         ]
-        self._raged = False
+        self._phase      = "normal"   # normal -> enraged -> berserk -> desperate
+        self._def_buff   = 0
+        self._base_def   = int(22 * mult)
 
-    def get_role_icon(self): return "💀"
+    def get_role_icon(self): return "[G]"
+
+    def _check_phase(self):
+        ratio = self._hp / self._max_hp
+        if ratio < 0.15:
+            self._phase = "desperate"
+        elif ratio < 0.30:
+            self._phase = "berserk"
+        elif ratio < 0.60:
+            self._phase = "enraged"
+        else:
+            self._phase = "normal"
 
     def use_skill(self, skill_index, targets, allies):
         sk = self._skills[skill_index]
         result = {"skill": sk.name, "log": [], "particles": []}
+
         if sk.skill_type == "buff":
-            self._attack = int(self._attack * 1.5)
-            self._raged  = True
-            result["log"].append(f"{self._name} 😡 mengamuk! ATK melonjak!")
-            result["particles"].append((self, C_RED))
+            self._def_buff = int(self._base_def * 0.5)
+            self._defense  = self._base_def + self._def_buff
+            result["log"].append(f"{self._name} [DEF] bertahan! DEF meningkat!")
+            result["particles"].append((self, C_CYAN))
+
         elif sk.skill_type == "attack":
             for t in targets[:1]:
-                dmg = int(self._attack * sk.power)
+                dmg    = int(self._attack * sk.power)
                 actual = t.take_damage(dmg)
-                result["log"].append(f"{self._name} 💢 {t.name}: {actual} DMG")
-                result["particles"].append((t, C_RED))
+                result["log"].append(f"{self._name} [ICE] {t.name}: {actual} DMG")
+                result["particles"].append((t, C_BLUE))
+
         elif sk.skill_type == "aoe":
             for t in targets:
-                dmg = int(self._attack * sk.power)
+                dmg    = int(self._attack * sk.power)
                 actual = t.take_damage(dmg)
-                result["log"].append(f"{self._name} 🌊 {t.name}: {actual} DMG")
-                result["particles"].append((t, C_RED2))
+                result["log"].append(f"{self._name} [ICE] {t.name}: {actual} DMG")
+                result["particles"].append((t, C_CYAN))
+
+        elif sk.skill_type == "multi":
+            chosen = sorted(targets, key=lambda h: -h.attack)[:2]
+            for t in chosen:
+                dmg    = int(self._attack * sk.power)
+                actual = t.take_damage(dmg)
+                result["log"].append(f"{self._name} [!!] {t.name}: {actual} DMG")
+                result["particles"].append((t, C_PURPLE))
+
+        # Reset def buff setelah 1 turn
+        if sk.skill_type != "buff" and self._def_buff > 0:
+            self._defense  = self._base_def
+            self._def_buff = 0
+
         return result
 
     def ai_turn(self, heroes):
         alive = [h for h in heroes if h.alive]
-        if not alive: return {"log": [], "particles": []}
-        # HP rendah → rage dulu jika belum
-        hp_ratio = self._hp / self._max_hp
-        if hp_ratio < 0.4 and not self._raged:
-            return self.use_skill(2, alive, [])
-        # Pilih AOE atau single attack
-        roll = random.random()
-        if roll < 0.35:
-            return self.use_skill(1, alive, [])   # AOE
-        else:
-            target = min(alive, key=lambda h: h.hp)
-            return self.use_skill(0, [target], [])
+        if not alive:
+            return {"log": [], "particles": []}
 
+        self._check_phase()
+        roll = random.random()
+
+        if self._phase == "desperate":
+            # Desperate: mostly AOE + multi
+            if roll < 0.5:
+                return self.use_skill(1, alive, [])      # Blizzard AOE
+            elif roll < 0.8:
+                return self.use_skill(3, alive, [])      # Permafrost multi
+            else:
+                target = min(alive, key=lambda h: h.hp)
+                return self.use_skill(0, [target], [])   # single
+
+        elif self._phase == "berserk":
+            # Berserk: lebih sering AOE
+            if roll < 0.45:
+                return self.use_skill(1, alive, [])
+            elif roll < 0.75:
+                return self.use_skill(3, alive, [])
+            else:
+                target = min(alive, key=lambda h: h.hp)
+                return self.use_skill(0, [target], [])
+
+        elif self._phase == "enraged":
+            # Enraged: kadang bertahan
+            if roll < 0.15:
+                return self.use_skill(2, alive, [])      # Frost Armor
+            elif roll < 0.50:
+                return self.use_skill(1, alive, [])
+            else:
+                target = min(alive, key=lambda h: h.hp)
+                return self.use_skill(0, [target], [])
+
+        else:
+            # Normal: single attack dominan
+            if roll < 0.20:
+                return self.use_skill(2, alive, [])      # Frost Armor
+            elif roll < 0.40:
+                return self.use_skill(1, alive, [])
+            else:
+                target = min(alive, key=lambda h: h.hp)
+                return self.use_skill(0, [target], [])
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  BATTLE ENGINE
@@ -553,6 +582,7 @@ class BattleEngine:
         if not enemy.alive:
             return {"log": [], "particles": []}
         res = enemy.ai_turn(self.alive_heroes())
+        sfx.play_attack(enemy)
         for msg in res["log"]:
             self.add_log(msg)
         self.check_winner()
@@ -560,6 +590,12 @@ class BattleEngine:
 
     def hero_use_skill(self, hero: Hero, skill_idx: int, targets: list):
         res = hero.use_skill(skill_idx, targets, self.alive_heroes())
+        # Play SFX
+        sk = hero._skills[skill_idx] if skill_idx < len(hero._skills) else None
+        if sk:
+            sfx.play_skill(hero, sk.skill_type)
+        else:
+            sfx.play_attack(hero)
         for msg in res["log"]:
             self.add_log(msg)
         self.check_winner()
@@ -571,7 +607,7 @@ class BattleEngine:
 # ══════════════════════════════════════════════════════════════════════════════
 
 class Button:
-    def __init__(self, rect, text, color, hover_color, font=None, text_color=C_WHITE, radius=10):
+    def __init__(self, rect, text, color, hover_color, font=None, text_color=C_WHITE, radius=12):
         self.rect        = pygame.Rect(rect)
         self.text        = text
         self.color       = color
@@ -580,43 +616,103 @@ class Button:
         self.text_color  = text_color
         self.radius      = radius
         self.hovered     = False
+        self._anim       = 0.0   # hover animation progress 0..1
 
     def draw(self, surf):
-        col = self.hover_color if self.hovered else self.color
-        draw_rounded_rect(surf, col, self.rect, self.radius,
-                          border=2, border_color=C_BORDER if not self.hovered else C_GREEN)
-        draw_text_centered(surf, self.text, self.font, self.text_color,
-                           self.rect.centerx, self.rect.centery)
+        self._anim += (1.0 if self.hovered else -1.0) * 0.15
+        self._anim  = max(0.0, min(1.0, self._anim))
+        t = self._anim
+
+        col = lerp_color(self.color, self.hover_color, t)
+        # Glow border
+        border_col = lerp_color(C_BORDER, C_GOLD, t)
+        border_w   = 2 if t < 0.5 else 3
+
+        # Slight scale-up on hover
+        scale = 1.0 + t * 0.025
+        rw = int(self.rect.width  * scale)
+        rh = int(self.rect.height * scale)
+        rx = self.rect.centerx - rw // 2
+        ry = self.rect.centery - rh // 2
+        r  = pygame.Rect(rx, ry, rw, rh)
+
+        # Shadow
+        shadow = pygame.Surface((rw + 8, rh + 8), pygame.SRCALPHA)
+        pygame.draw.rect(shadow, (0, 0, 0, int(80 * t)), shadow.get_rect(), border_radius=self.radius + 4)
+        surf.blit(shadow, (rx - 4, ry - 2))
+
+        draw_rounded_rect(surf, col, r, self.radius, border=border_w, border_color=border_col)
+
+        # Shimmer effect on hover
+        if t > 0.1:
+            shimmer = pygame.Surface((rw, rh), pygame.SRCALPHA)
+            shimmer.fill((255, 255, 255, int(18 * t)))
+            pygame.draw.rect(shimmer, (0,0,0,0), pygame.Rect(0, rh//2, rw, rh//2))
+            surf.blit(shimmer, (rx, ry))
+
+        tcol = lerp_color(self.text_color, C_WHITE, t * 0.4)
+        draw_text_centered(surf, self.text, self.font, tcol, self.rect.centerx, self.rect.centery)
 
     def check_hover(self, pos):
+        was = self.hovered
         self.hovered = self.rect.collidepoint(pos)
+        if self.hovered and not was:
+            sfx.play("ui_hover", volume=0.25)
 
     def is_clicked(self, pos, event):
-        return event.type == pygame.MOUSEBUTTONDOWN and self.rect.collidepoint(pos)
+        if event.type == pygame.MOUSEBUTTONDOWN and self.rect.collidepoint(pos):
+            sfx.play("ui_select", volume=0.5)
+            return True
+        return False
 
 
 class HPBar:
     def __init__(self, x, y, w, h, char: Character):
         self.x = x; self.y = y; self.w = w; self.h = h
         self.char = char
-        self._display_hp = char.hp
+        self._display_hp = float(char.hp)
+        self._flash      = 0   # flash saat kena hit
 
     def update(self):
-        self._display_hp += (self.char.hp - self._display_hp) * 0.12
+        prev = self._display_hp
+        self._display_hp += (self.char.hp - self._display_hp) * 0.10
+        if self.char.hp < prev - 1:
+            self._flash = 8
+        if self._flash > 0:
+            self._flash -= 1
 
     def draw(self, surf):
-        ratio = max(0, self._display_hp / self.char.max_hp)
-        draw_rounded_rect(surf, C_GRAY2, (self.x, self.y, self.w, self.h), 4)
-        if ratio > 0.6:
-            col = C_GREEN
-        elif ratio > 0.3:
-            col = C_GOLD
+        ratio = max(0.0, self._display_hp / self.char.max_hp)
+
+        # Background track
+        draw_rounded_rect(surf, (20, 18, 40), (self.x, self.y, self.w, self.h), 5)
+
+        # Colored fill
+        if ratio > 0.55:
+            col = (60, 210, 100)
+        elif ratio > 0.28:
+            col = (230, 170, 40)
         else:
-            col = C_RED
-        fill_w = int(self.w * ratio)
+            col = (220, 55, 55)
+
+        fill_w = max(4, int(self.w * ratio)) if ratio > 0 else 0
         if fill_w > 0:
-            draw_rounded_rect(surf, col, (self.x, self.y, fill_w, self.h), 4)
-        pygame.draw.rect(surf, C_BORDER, (self.x, self.y, self.w, self.h), 1, border_radius=4)
+            draw_rounded_rect(surf, col, (self.x, self.y, fill_w, self.h), 5)
+            # Shine strip top
+            shine = pygame.Surface((fill_w, self.h // 2), pygame.SRCALPHA)
+            shine.fill((255, 255, 255, 30))
+            surf.blit(shine, (self.x, self.y))
+
+        # Flash overlay saat kena hit
+        if self._flash > 0:
+            fl = pygame.Surface((self.w, self.h), pygame.SRCALPHA)
+            fl.fill((255, 80, 80, int(120 * self._flash / 8)))
+            surf.blit(fl, (self.x, self.y))
+
+        # Border
+        pygame.draw.rect(surf, (80, 80, 120), (self.x, self.y, self.w, self.h), 1, border_radius=5)
+
+        # HP text
         hp_text = F_TINY.render(f"{int(self._display_hp)}/{self.char.max_hp}", True, C_WHITE)
         surf.blit(hp_text, (self.x + self.w // 2 - hp_text.get_width() // 2,
                              self.y + self.h // 2 - hp_text.get_height() // 2))
@@ -642,11 +738,11 @@ class LevelUpScreen:
         self.tick      = 0
         self.continue_btn = Button(
             (SCREEN_W // 2 - 160, SCREEN_H - 110, 320, 56),
-            "⚔️  LANJUT KE LEVEL BERIKUTNYA", C_GREEN2, C_GREEN, F_BIG
+            ">> LANJUT KE LEVEL BERIKUTNYA", C_GREEN2, C_GREEN, F_BIG
         )
         self.menu_btn = Button(
             (SCREEN_W // 2 - 100, SCREEN_H - 46, 200, 34),
-            "↩ Kembali ke Menu", C_PANEL2, C_PANEL, F_SMALL
+            "< Kembali ke Menu", C_PANEL2, C_PANEL, F_SMALL
         )
         # Spawn celebration particles
         for _ in range(30):
@@ -678,7 +774,7 @@ class LevelUpScreen:
         # Judul
         glow = abs(math.sin(self.tick * 0.05))
         title_col = lerp_color(C_GREEN, C_GOLD, glow)
-        draw_text_centered(screen, "🌿 LEVEL CLEAR! 🌿", F_TITLE, title_col, SCREEN_W // 2, 70)
+        draw_text_centered(screen, "-- LEVEL CLEAR! --", F_TITLE, title_col, SCREEN_W // 2, 70)
 
         prev_level = self.level_system.current_level - 1
         draw_text_centered(screen, f"Level {prev_level} Selesai!", F_BIG, C_WHITE, SCREEN_W // 2, 130)
@@ -689,7 +785,7 @@ class LevelUpScreen:
         draw_rounded_rect(screen, C_PANEL, panel, 14, border=2, border_color=C_GOLD)
         draw_text_centered(screen, f"Level Berikutnya: {next_lv}  |  {self.level_system.level_label()}",
                            F_MED, C_GOLD, SCREEN_W // 2, 190)
-        draw_text_centered(screen, f"Kesulitan: {self.level_system.difficulty_stars()}",
+        draw_text_centered(screen, f"Kesulitan: Level {self.level_system.current_level}",
                            F_MED, C_WHITE, SCREEN_W // 2, 218)
         draw_text_centered(screen,
                            f"Musuh: {self.level_system.enemy_count} unit  |  Tier {self.level_system.tier}",
@@ -720,7 +816,7 @@ class GameClearScreen:
     def __init__(self):
         self.tick = 0
         self.back_btn = Button((SCREEN_W // 2 - 120, SCREEN_H - 80, 240, 50),
-                               "↩ Kembali ke Menu", C_GREEN2, C_GREEN, F_BIG)
+                               "< Kembali ke Menu", C_GREEN2, C_GREEN, F_BIG)
 
     def update(self, events):
         self.tick += 1
@@ -741,7 +837,7 @@ class GameClearScreen:
         screen.fill(C_BG)
         glow = abs(math.sin(self.tick * 0.04))
         col1 = lerp_color(C_GOLD, C_GREEN, glow)
-        draw_text_centered(screen, "✨ MONSTERA ECLIPSE ✨", F_TITLE, col1, SCREEN_W // 2, 120)
+        draw_text_centered(screen, " MONSTERA ECLIPSE ", F_TITLE, col1, SCREEN_W // 2, 120)
         draw_text_centered(screen, "GAME CLEAR!", F_TITLE, C_GOLD, SCREEN_W // 2, 210)
         draw_text_centered(screen, "Semua 12 level telah ditaklukkan!", F_BIG, C_WHITE, SCREEN_W // 2, 290)
         draw_text_centered(screen, "Alam Monstera kembali bersinar abadi.", F_MED, C_GREEN, SCREEN_W // 2, 340)
@@ -758,7 +854,6 @@ def get_character_asset_key(char):
     if isinstance(char, Warrior):    return "warrior"
     if isinstance(char, Mage):       return "mage"
     if isinstance(char, Healer):     return "healer"
-    if isinstance(char, Ranger):     return "ranger"
     if isinstance(char, Shadow):     return "shadow"
     if isinstance(char, DarkMage):   return "dark_mage"
     if isinstance(char, BossEclipse): return "boss_eclipse"
@@ -802,29 +897,36 @@ class MenuScreen:
         return "menu"
 
     def draw(self):
-        screen.fill(C_BG)
+        menu_bg = asset_manager.get_menu_background()
+        if menu_bg:
+            screen.blit(menu_bg, (0, 0))
+            overlay = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 130))
+            screen.blit(overlay, (0, 0))
+        else:
+            screen.fill(C_BG)
         for ox, oy, phase, spd, col in self.orbs:
             x = ox + math.sin(self.tick * 0.01 * spd + phase) * 30
             y = oy + math.cos(self.tick * 0.008 * spd + phase) * 20
             alpha_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
-            pygame.draw.circle(alpha_surf, (*col, 60), (10, 10), 10)
+            pygame.draw.circle(alpha_surf, (*col, 80), (10, 10), 10)
             screen.blit(alpha_surf, (int(x) - 10, int(y) - 10))
         glow = abs(math.sin(self.tick * 0.04))
         title_col = lerp_color(C_GREEN, C_CYAN, glow)
         draw_text_centered(screen, "MONSTERA", F_TITLE, title_col, SCREEN_W // 2, 170)
         draw_text_centered(screen, "ECLIPSE",  F_TITLE, lerp_color(C_PURPLE, C_RED, glow), SCREEN_W // 2, 240)
-        draw_text_centered(screen, "⚔️ Turn-Based RPG ⚔️", F_SMALL, C_GRAY, SCREEN_W // 2, 295)
+        draw_text_centered(screen, "[ Turn-Based RPG ]", F_SMALL, C_GRAY, SCREEN_W // 2, 295)
         for b in self.buttons:
             b.draw(screen)
-        draw_text_centered(screen, "© Monstera Eclipse Team", F_TINY, C_GRAY2, SCREEN_W // 2, SCREEN_H - 20)
+        draw_text_centered(screen, "(c) Monstera Eclipse Team", F_TINY, C_GRAY2, SCREEN_W // 2, SCREEN_H - 20)
 
 
 class SettingsScreen:
     def __init__(self, music_on):
         self.music_on = music_on
-        self.back_btn  = Button((30, 30, 120, 40), "← Back", C_PANEL2, C_PANEL, F_SMALL)
+        self.back_btn  = Button((30, 30, 120, 40), "< Back", C_PANEL2, C_PANEL, F_SMALL)
         self.music_btn = Button((SCREEN_W // 2 - 130, 280, 260, 52),
-                                 "🔊 Music: ON" if music_on else "🔇 Music: OFF",
+                                 "Music: ON" if music_on else "Music: OFF",
                                  C_GREEN2 if music_on else C_GRAY2, C_GREEN, F_MED)
 
     def update(self, events):
@@ -837,7 +939,7 @@ class SettingsScreen:
                 return "menu", self.music_on
             if self.music_btn.is_clicked((mx, my), e):
                 self.music_on = not self.music_on
-                self.music_btn.text  = "🔊 Music: ON" if self.music_on else "🔇 Music: OFF"
+                self.music_btn.text  = "Music: ON" if self.music_on else "Music: OFF"
                 self.music_btn.color = C_GREEN2 if self.music_on else C_GRAY2
         return "settings", self.music_on
 
@@ -853,29 +955,28 @@ class SettingsScreen:
 
 
 class PartySelectScreen:
-    HERO_CLASSES = [Warrior, Mage, Healer, Ranger]
-    HERO_NAMES   = ["Verdant Knight", "Flora Sorceress", "Bloom Sage", "Moss Hunter"]
-    HERO_ROLES   = ["Warrior ⚔️", "Mage 🔮", "Healer 💚", "Ranger 🏹"]
+    HERO_CLASSES = [Warrior, Mage, Healer]
+    HERO_NAMES   = ["Verdant Knight", "Flora Sorceress", "Bloom Sage"]
+    HERO_ROLES   = ["Warrior", "Mage", "Healer"]
     HERO_DESCS   = [
         ["HP: 180 (Tinggi)", "ATK: 35 | DEF: 20", "SPD: 12 — Tank tangguh", "Skill AoE & Shield"],
         ["HP: 110 (Rendah)", "ATK: 55 | DEF: 8",  "SPD: 16 — Glass Cannon", "Skill burst damage"],
         ["HP: 130 (Medium)", "ATK: 22 | DEF: 14", "SPD: 14 — Support",      "Heal tim & serangan"],
-        ["HP: 145 (Medium)", "ATK: 40 | DEF: 12", "SPD: 18 — Tercepat",     "Serangan ganda/kritis"],
     ]
-    HERO_COLORS  = [C_GREEN, C_PURPLE, C_HEAL, C_GOLD]
+    HERO_COLORS  = [C_GREEN, C_PURPLE, C_HEAL]
 
     def __init__(self):
-        self.selected  = set(range(4))
+        self.selected  = set(range(3))
         self.hovered   = -1
         self.start_btn = Button((SCREEN_W // 2 - 140, SCREEN_H - 70, 280, 48),
-                                 "⚔️  START BATTLE", C_GREEN2, C_GREEN, F_BIG)
-        self.back_btn  = Button((30, 30, 120, 40), "← Back", C_PANEL2, C_PANEL, F_SMALL)
+                                 ">> START BATTLE", C_GREEN2, C_GREEN, F_BIG)
+        self.back_btn  = Button((30, 30, 120, 40), "< Back", C_PANEL2, C_PANEL, F_SMALL)
         self.card_rects = []
         cw, ch = 220, 280
         gap    = 24
-        total_w = 4 * cw + 3 * gap
+        total_w = 3 * cw + 2 * gap
         sx = (SCREEN_W - total_w) // 2
-        for i in range(4):
+        for i in range(3):
             self.card_rects.append(pygame.Rect(sx + i * (cw + gap), 130, cw, ch))
 
     def update(self, events):
@@ -894,19 +995,19 @@ class PartySelectScreen:
                     if r.collidepoint(mx, my):
                         if i in self.selected:
                             self.selected.discard(i)
-                        elif len(self.selected) < 4:
+                        elif len(self.selected) < 3:
                             self.selected.add(i)
             if self.start_btn.is_clicked((mx, my), e):
-                if len(self.selected) == 4:
+                if len(self.selected) == 3:
                     heroes = [self.HERO_CLASSES[i]() for i in sorted(self.selected)]
                     return "battle", heroes
         return "select_party", []
 
     def draw(self):
         screen.fill(C_BG)
-        draw_text_centered(screen, "🌿 TIM HERO (4 ROLE)", F_BIG, C_WHITE, SCREEN_W // 2, 55)
-        draw_text_centered(screen, f"Dipilih: {len(self.selected)}/4 — Warrior, Mage, Healer, Ranger", F_MED,
-                           C_GREEN if len(self.selected) == 4 else C_GRAY, SCREEN_W // 2, 95)
+        draw_text_centered(screen, "=== PILIH HERO ===", F_BIG, C_WHITE, SCREEN_W // 2, 55)
+        draw_text_centered(screen, f"Dipilih: {len(self.selected)}/3 — Warrior, Mage, Healer", F_MED,
+                           C_GREEN if len(self.selected) == 3 else C_GRAY, SCREEN_W // 2, 95)
         for i, (r, cls) in enumerate(zip(self.card_rects, self.HERO_CLASSES)):
             sel = i in self.selected
             hov = i == self.hovered
@@ -914,9 +1015,9 @@ class PartySelectScreen:
             border_col = self.HERO_COLORS[i] if sel else (C_BORDER if not hov else C_WHITE)
             draw_rounded_rect(screen, bg, r, 16, border=2 if not sel else 3, border_color=border_col)
             cx = r.centerx
-            asset_key = ["warrior", "mage", "healer", "ranger"][i]
+            asset_key = ["warrior", "mage", "healer"][i]
             if not asset_manager.draw_sprite(screen, asset_key, (cx, r.y + 48), size=(76, 76)):
-                icon = F_TITLE.render(["⚔️", "🔮", "💚", "🏹"][i], True, self.HERO_COLORS[i])
+                icon = F_TITLE.render(["W", "M", "H"][i], True, self.HERO_COLORS[i])
                 screen.blit(icon, (cx - icon.get_width() // 2, r.y + 12))
             draw_text_centered(screen, self.HERO_ROLES[i], F_MED, self.HERO_COLORS[i], cx, r.y + 90)
             draw_text_centered(screen, self.HERO_NAMES[i], F_SMALL, C_WHITE, cx, r.y + 118)
@@ -924,11 +1025,11 @@ class PartySelectScreen:
                 draw_text_centered(screen, desc, F_TINY, C_GRAY, cx, r.y + 146 + j * 22)
             if sel:
                 draw_text_centered(screen, "✔ DIPILIH", F_SMALL, C_GREEN, cx, r.bottom - 22)
-        if len(self.selected) == 4:
+        if len(self.selected) == 3:
             self.start_btn.draw(screen)
         else:
             draw_rounded_rect(screen, C_GRAY2, (SCREEN_W // 2 - 140, SCREEN_H - 70, 280, 48), 10)
-            draw_text_centered(screen, "Tim harus berisi 4 hero", F_MED, C_GRAY, SCREEN_W // 2, SCREEN_H - 46)
+            draw_text_centered(screen, "Tim harus berisi 3 hero", F_MED, C_GRAY, SCREEN_W // 2, SCREEN_H - 46)
         self.back_btn.draw(screen)
 
 
@@ -939,8 +1040,8 @@ class PartySelectScreen:
 class BattleScreen:
     """
     Battle screen yang sekarang menerima LevelSystem.
-    Setelah menang → kirim sinyal ke main loop untuk ke LevelUpScreen.
-    Setelah kalah  → kirim sinyal ke menu.
+    Setelah menang -> kirim sinyal ke main loop untuk ke LevelUpScreen.
+    Setelah kalah  -> kirim sinyal ke menu.
     """
     def __init__(self, heroes: list, level_system: LevelSystem):
         self.heroes       = heroes
@@ -952,6 +1053,8 @@ class BattleScreen:
 
         # Pastikan asset_manager sudah di-init dan buat animator per karakter
         asset_manager.init()
+        sfx.init()
+        sfx.play("level_start")
         for h in self.heroes:
             asset_manager.get_animator(h, get_character_asset_key(h) or "warrior")
         for e in self.enemies:
@@ -999,7 +1102,7 @@ class BattleScreen:
         Skill panel tetap di bawah tengah.
 
         Zona vertikal:
-          y=55  → y=SCREEN_H-270  : arena karakter
+          y=55  -> y=SCREEN_H-270  : arena karakter
           y=SCREEN_H-265 ke bawah : skill panel
         """
         arena_top    = 55
@@ -1100,8 +1203,12 @@ class BattleScreen:
         for bar in self.hp_bars_h.values(): bar.update()
         for bar in self.hp_bars_e.values(): bar.update()
 
-        if self.engine.winner:
+        if self.engine.winner and self.phase != "result":
             self.phase = "result"
+            if self.engine.winner == "hero":
+                sfx.play("victory")
+            else:
+                sfx.play("defeat")
 
         if self.phase == "anim":
             self.anim_timer -= 1
@@ -1238,9 +1345,9 @@ class BattleScreen:
         Update offset posisi Warrior saat animasi charge ke musuh.
 
         Timeline (total ~55 frame):
-          charge  : frame 0–14  → maju cepat ke arah musuh
-          hold    : frame 15–24 → diam sejenak di posisi musuh (impact!)
-          return  : frame 25–54 → balik ke posisi asal secara smooth
+          charge  : frame 0–14  -> maju cepat ke arah musuh
+          hold    : frame 15–24 -> diam sejenak di posisi musuh (impact!)
+          return  : frame 25–54 -> balik ke posisi asal secara smooth
         """
         if self.anim_charge_phase is None or self.anim_charge_hero is None:
             return
@@ -1369,7 +1476,6 @@ class BattleScreen:
         self._draw_center_hud()
         self._draw_battle_log()
         self._draw_skills()
-        self._draw_level_badge()
         update_particles(screen)
         asset_manager.update_all()
         if self.phase == "result":
@@ -1387,14 +1493,6 @@ class BattleScreen:
         pygame.draw.line(screen, (30, 45, 30),
                          (160, arena_mid_y), (SCREEN_W - 160, arena_mid_y), 1)
 
-    def _draw_level_badge(self):
-        lv    = self.level_system.current_level
-        stars = self.level_system.difficulty_stars()
-        label = self.level_system.level_label()
-        badge_rect = pygame.Rect(8, SCREEN_H - 264, 160, 44)
-        draw_rounded_rect(screen, C_PANEL, badge_rect, 10, border=2, border_color=C_GOLD)
-        draw_text(screen, f"Lv.{lv}  {label}", F_SMALL, C_GOLD, 16, SCREEN_H - 258)
-        draw_text(screen, stars,               F_TINY,  C_WHITE, 16, SCREEN_H - 240)
 
     def _draw_bg_effects(self):
         if not asset_manager.get_background():
@@ -1416,7 +1514,7 @@ class BattleScreen:
             if not enemy.alive:
                 draw_rounded_rect(screen, (10, 10, 14), rect, 10,
                                   border=1, border_color=C_GRAY2)
-                draw_text_centered(screen, "💀", F_MED, C_GRAY,
+                draw_text_centered(screen, "[D]", F_MED, C_GRAY,
                                    rect.centerx, rect.centery - 10)
                 draw_text_centered(screen, "DEFEATED", F_TINY, C_GRAY,
                                    rect.centerx, rect.centery + 14)
@@ -1429,10 +1527,10 @@ class BattleScreen:
             if selected:
                 pulse     = abs(math.sin(self.tick * 0.12))
                 arrow_col = lerp_color(C_RED, C_GOLD, pulse)
-                draw_text_centered(screen, "◀ TARGET", F_TINY, arrow_col,
+                draw_text_centered(screen, "< TARGET", F_TINY, arrow_col,
                                    rect.x - 42, rect.centery)
             if self.last_actor is enemy:
-                draw_text_centered(screen, "⚡ ATK", F_TINY, C_RED,
+                draw_text_centered(screen, ">> ATK", F_TINY, C_RED,
                                    rect.centerx, rect.top - 14)
             sprite_size = (72, 72)
             sprite_cx   = rect.centerx
@@ -1465,7 +1563,7 @@ class BattleScreen:
             if not hero.alive:
                 draw_rounded_rect(screen, (10, 10, 14), rect, 10,
                                   border=1, border_color=C_GRAY2)
-                draw_text_centered(screen, "💀", F_MED, C_GRAY,
+                draw_text_centered(screen, "[D]", F_MED, C_GRAY,
                                    rect.centerx, rect.centery - 10)
                 draw_text_centered(screen, "K.O.", F_TINY, C_GRAY,
                                    rect.centerx, rect.centery + 14)
@@ -1519,37 +1617,68 @@ class BattleScreen:
                 draw_text_centered(screen, "▶ ACTIVE", F_TINY, C_GREEN,
                                    rect.right + 38, rect.centery)
             elif already_acted:
-                draw_text_centered(screen, "DONE ✓", F_TINY, C_GRAY,
+                draw_text_centered(screen, "DONE", F_TINY, C_GRAY,
                                    rect.centerx, rect.top - 13)
 
     def _draw_center_hud(self):
-        cx    = SCREEN_W // 2
-        vs_y  = (55 + SCREEN_H - 270) // 2
-        draw_text_centered(screen, "VS", F_BIG, (50, 50, 60), cx, vs_y)
+        cx   = SCREEN_W // 2
+        # Top bar dengan gradien
+        bar_h = 48
+        bar   = pygame.Surface((SCREEN_W, bar_h), pygame.SRCALPHA)
+        bar.fill((10, 8, 20, 210))
+        screen.blit(bar, (0, 0))
+        pygame.draw.line(screen, C_GOLD, (0, bar_h - 1), (SCREEN_W, bar_h - 1), 1)
+
         phase_text = {
-            "player_turn": "🌿 PILIH HERO + SKILL",
-            "anim":        "⚡ AKSI BERJALAN...",
-            "result":      "⚔️ SELESAI",
+            "player_turn": "GILIRANMU — Pilih Hero & Skill",
+            "anim":        "Menunggu aksi...",
+            "result":      "Pertarungan selesai",
         }.get(self.phase, "")
+
         col = C_GREEN if self.phase == "player_turn" else C_GOLD
-        draw_text_centered(screen, f"Round {self.engine.turn + 1}  |  {phase_text}",
-                           F_MED, col, cx, 14)
+        glow = abs(math.sin(self.tick * 0.05))
+        title_c = lerp_color(col, C_WHITE, glow * 0.3)
+
+        draw_text_centered(screen, f"Round {self.engine.turn + 1}", F_SMALL, C_GOLD, cx - 160, 15)
+        draw_text_centered(screen, "|", F_SMALL, C_GRAY2, cx - 80, 15)
+        draw_text_centered(screen, phase_text, F_SMALL, title_c, cx + 30, 15)
+
         if self.phase == "player_turn":
             rem = len(self._available_heroes())
-            draw_text_centered(screen, f"Hero belum menyerang: {rem}",
-                               F_TINY, C_GRAY, cx, 36)
+            col2 = C_GREEN if rem > 0 else C_GRAY
+            draw_text_centered(screen, f"Hero siap: {rem}", F_TINY, col2, cx, 32)
+
+        # VS badge di tengah arena
+        vs_y = (bar_h + SCREEN_H - 270) // 2
+        vs_surf = pygame.Surface((54, 30), pygame.SRCALPHA)
+        pygame.draw.rect(vs_surf, (20, 14, 40, 200), vs_surf.get_rect(), border_radius=8)
+        pygame.draw.rect(vs_surf, C_PURPLE, vs_surf.get_rect(), 1, border_radius=8)
+        screen.blit(vs_surf, (cx - 27, vs_y - 15))
+        draw_text_centered(screen, "VS", F_SMALL, C_PURPLE, cx, vs_y - 2)
 
     def _draw_battle_log(self):
-        lw, lh = 300, 158
+        lw, lh = 340, 162
         lx = SCREEN_W // 2 - lw // 2
-        ly = SCREEN_H - 270 - lh - 6
-        draw_rounded_rect(screen, (10, 14, 20), (lx, ly, lw, lh), 10,
-                          border=1, border_color=C_BORDER)
-        draw_text_centered(screen, "📜 Battle Log", F_TINY, C_GOLD, lx + lw // 2, ly + 9)
-        for i, msg in enumerate(self.engine.log[-6:]):
-            col = C_WHITE if i == len(self.engine.log[-6:]) - 1 else C_GRAY
-            txt = F_TINY.render(msg[:42], True, col)
-            screen.blit(txt, (lx + 8, ly + 26 + i * 22))
+        ly = SCREEN_H - 270 - lh - 8
+
+        # Panel with slight blur background
+        bg = pygame.Surface((lw, lh), pygame.SRCALPHA)
+        bg.fill((8, 6, 18, 220))
+        screen.blit(bg, (lx, ly))
+        pygame.draw.rect(screen, C_GOLD, (lx, ly, lw, lh), 1, border_radius=10)
+
+        # Header
+        pygame.draw.rect(screen, (20, 16, 40), (lx, ly, lw, 22), border_radius=10)
+        draw_text_centered(screen, "BATTLE LOG", F_TINY, C_GOLD, lx + lw // 2, ly + 6)
+
+        msgs = self.engine.log[-6:]
+        for i, msg in enumerate(msgs):
+            alpha = int(120 + 135 * (i / max(len(msgs)-1, 1)))
+            col   = (alpha, alpha, min(255, alpha + 20))
+            if i == len(msgs) - 1:
+                col = C_WHITE
+            txt = F_TINY.render(msg[:44], True, col)
+            screen.blit(txt, (lx + 10, ly + 26 + i * 22))
 
     def _draw_skills(self):
         if self.phase != "player_turn":
@@ -1557,29 +1686,54 @@ class BattleScreen:
         hero = self._current_hero()
         if not hero:
             return
-        pw, ph = SCREEN_W - 20, 158
+        pw, ph = SCREEN_W - 20, 162
         px = 10
         py = SCREEN_H - ph - 10
-        draw_rounded_rect(screen, (12, 16, 22), (px, py, pw, ph), 14,
-                          border=2, border_color=C_BORDER)
-        draw_text(screen, f"{hero.get_role_icon()} {hero.name}", F_SMALL, hero.color,
-                  px + 12, py + 10)
-        draw_text(screen, f"HP {hero.hp}/{hero.max_hp}  ATK {hero.attack}  DEF {hero.defense}",
-                  F_TINY, C_GRAY, px + 12, py + 30)
+
+        # Panel background
+        panel_surf = pygame.Surface((pw, ph), pygame.SRCALPHA)
+        panel_surf.fill((10, 8, 22, 230))
+        screen.blit(panel_surf, (px, py))
+        pygame.draw.rect(screen, hero.color, (px, py, pw, ph), 2, border_radius=14)
+
+        # Hero info — left side
+        ratio = hero.hp / hero.max_hp
+        hp_col = C_GREEN if ratio > 0.55 else (C_GOLD if ratio > 0.28 else C_RED)
+        draw_text(screen, hero.name,     F_SMALL, hero.color, px + 14, py + 10)
+        draw_text(screen, hero.role,     F_TINY,  C_GRAY,     px + 14, py + 28)
+        draw_text(screen, f"HP  {hero.hp}/{hero.max_hp}", F_TINY, hp_col, px + 14, py + 44)
+        draw_text(screen, f"ATK {hero.attack}   DEF {hero.defense}   SPD {hero.speed}",
+                  F_TINY, C_GRAY, px + 14, py + 60)
+
         target = self._current_target_enemy()
-        target_name = target.name if target else "-"
-        draw_text(screen, f"Target: {target_name}", F_TINY, C_GOLD, px + 12, py + 46)
+        if target:
+            draw_text(screen, f"Target: {target.name}", F_TINY, C_GOLD, px + 14, py + 76)
+
+        # Divider
+        pygame.draw.line(screen, (40, 36, 70), (px + 160, py + 8), (px + 160, py + ph - 8), 1)
+
+        # Skill buttons (already drawn by skill_btns)
         for btn in self.skill_btns:
             btn.draw(screen)
-        draw_text_centered(screen,
-                           "Klik kartu hero = pilih penyerang  |  Klik kartu musuh = pilih target",
-                           F_TINY, (60, 70, 80), SCREEN_W // 2, py + ph - 10)
+
+        # Help text bottom
+        draw_text_centered(screen, "Klik hero = pilih  |  Klik musuh = ganti target",
+                           F_TINY, (55, 60, 80), SCREEN_W // 2, py + ph - 12)
 
     def _draw_result(self):
         ov = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
-        ov.fill((0, 0, 0, 170))
+        ov.fill((0, 0, 0, 185))
         screen.blit(ov, (0, 0))
+
+        # Center glow
+        glow = abs(math.sin(self.tick * 0.04))
         won   = self.engine.winner == "hero"
+        gc = (40, 180, 80) if won else (180, 40, 40)
+        g_surf = pygame.Surface((500, 500), pygame.SRCALPHA)
+        for r in range(240, 0, -30):
+            a = int(20 * glow * (r / 240))
+            pygame.draw.circle(g_surf, (*gc, a), (250, 250), r)
+        screen.blit(g_surf, (SCREEN_W//2 - 250, SCREEN_H//2 - 280))
         title = "🌿 LEVEL CLEAR!" if won else "🌑 ECLIPSE MENANG!"
         msg   = "Klik untuk lanjut..." if won else "Kegelapan menyelimuti dunia..."
         col   = C_GREEN if won else C_RED

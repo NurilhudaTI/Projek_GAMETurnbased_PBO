@@ -31,12 +31,22 @@ def main():
     level_system = LevelSystem()   # ← satu instance sepanjang run game
 
     # ── BGM ──────────────────────────────────────────────────────────────────
-    try:
-        pygame.mixer.music.load("assets/sounds/music/battle_theme.mp3")
-        pygame.mixer.music.set_volume(0.5)
-        pygame.mixer.music.play(-1)
-    except Exception:
-        pass  # tidak ada file musik — tetap jalan
+    # Init asset manager early
+    from aset_game import asset_manager
+    from sfx_manager import sfx
+    asset_manager.init()
+    sfx.init()
+
+    # Load music
+    def play_music(name, vol=0.5):
+        try:
+            pygame.mixer.music.load(f"assets/sounds/music/{name}.mp3")
+            pygame.mixer.music.set_volume(vol)
+            pygame.mixer.music.play(-1)
+        except Exception as e:
+            print(f"Music load failed: {e}")
+
+    play_music("menu_theme")
 
     # ── MAIN LOOP ─────────────────────────────────────────────────────────────
     while True:
@@ -52,6 +62,8 @@ def main():
             level_system = LevelSystem()
             heroes = []
             particles.clear()
+            if not pygame.mixer.music.get_busy():
+                play_music("menu_theme")
 
             result = menu_screen.update(events)
             menu_screen.draw()
@@ -83,6 +95,7 @@ def main():
                 heroes = data
                 level_system = LevelSystem()          # level mulai dari 1
                 battle_screen = BattleScreen(heroes, level_system)
+                play_music("battle_theme")
                 state = "battle"
 
         # ── BATTLE ────────────────────────────────────────────────────────
