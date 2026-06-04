@@ -16,31 +16,34 @@ pygame.mixer.init()
 SCREEN_W, SCREEN_H = 1100, 700
 FPS = 60
 
-# Color Palette — dark forest meets eclipse
-C_BG        = (8,  12,  20)
-C_DARK      = (14, 22,  38)
-C_PANEL     = (18, 30,  50)
-C_PANEL2    = (22, 38,  62)
-C_BORDER    = (40, 80,  60)
-C_BORDER2   = (80, 40,  80)
-C_GREEN     = (60, 200, 100)
-C_GREEN2    = (30, 140,  70)
-C_PURPLE    = (160, 60, 220)
-C_PURPLE2   = (100, 30, 160)
-C_GOLD      = (220, 180,  60)
-C_ORANGE    = (230, 120,  40)
-C_RED       = (220,  60,  60)
-C_RED2      = (160,  30,  30)
-C_BLUE      = (60,  140, 220)
-C_CYAN      = (60,  210, 200)
-C_WHITE     = (230, 235, 245)
-C_GRAY      = (100, 110, 130)
-C_GRAY2     = (60,  70,  90)
-C_HEAL      = (60,  220, 140)
+# Color Palette — Premium Dark Fantasy
+C_BG        = (10,  8,  18)       # Deep void black
+C_DARK      = (16, 14,  32)
+C_PANEL     = (20, 18,  42)       # Dark panel
+C_PANEL2    = (28, 24,  56)       # Lighter panel
+C_BORDER    = (80, 160, 100)      # Green border
+C_BORDER2   = (140, 60, 200)      # Purple border
+C_GREEN     = (80,  220, 120)     # Bright green
+C_GREEN2    = (40,  160,  80)     # Mid green
+C_PURPLE    = (180,  80, 240)     # Bright purple
+C_PURPLE2   = (120,  40, 180)     # Mid purple
+C_GOLD      = (255, 200,  70)     # Bright gold
+C_GOLD2     = (180, 140,  40)     # Dark gold
+C_ORANGE    = (255, 140,  50)     # Orange
+C_RED       = (240,  70,  70)     # Bright red
+C_RED2      = (180,  35,  35)     # Dark red
+C_BLUE      = (70,  160, 255)     # Bright blue
+C_CYAN      = (80,  230, 220)     # Bright cyan
+C_WHITE     = (240, 245, 255)     # Bright white
+C_GRAY      = (120, 130, 150)     # Mid gray
+C_GRAY2     = (55,   60,  80)     # Dark gray
+C_HEAL      = (80,  240, 160)     # Heal green
 C_SHADOW_E  = (30,  10,  50)
+C_ACCENT    = (255, 180,  50)     # Warm accent / highlight
+C_GLASS     = (30,  26,  60)      # Glass panel bg
 
 screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
-pygame.display.set_caption("🌿 Monstera Eclipse 🌑")
+pygame.display.set_caption("Monstera Eclipse")
 clock = pygame.time.Clock()
 
 # ─── FONTS ───────────────────────────────────────────────────────────────────

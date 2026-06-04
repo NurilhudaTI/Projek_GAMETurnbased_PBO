@@ -5,24 +5,9 @@ Sistem ini mendukung DUA mode per karakter:
   1. Sprite sheet  : satu PNG berisi banyak frame (kolom = frame, baris = state)
   2. Fallback icon : emoji/teks jika file PNG tidak ditemukan
 
-Struktur folder yang diharapkan:
-  assets/
-    images/
-      characters/
-        warrior_sheet.png     ← sprite sheet warrior
-        mage_sheet.png
-        healer_sheet.png
-        ranger_sheet.png
-        shadow_sheet.png
-        dark_mage_sheet.png
-        boss_eclipse_sheet.png
-      backgrounds/
-        battle_bg.png
-
-Format sprite sheet (tiap PNG):
-  - Setiap baris = 1 state animasi: 0=idle, 1=run/charge, 2=attack, 3=hurt, 4=die
+Format sprite sheet yang dipakai:
+  - Setiap baris = 1 state: 0=idle, 1=run, 2=attack, 3=hurt, 4=die
   - Setiap kolom = 1 frame
-  - Contoh: warrior_sheet.png berukuran 512×320 → 8 frame × 5 state, tiap frame 64×64
 
 State index:
   IDLE    = 0
@@ -43,16 +28,15 @@ ANIM_HURT   = 3
 ANIM_DIE    = 4
 
 # ── Per-key config: (sheet_filename, frame_w, frame_h, frames_per_row, n_states, fps_per_state)
-# fps_per_state: berapa game-tick per frame (lebih kecil = lebih cepat)
 SPRITE_CONFIG = {
-    #  key           filename                    fw   fh  cols states spf
-    "warrior":    ("warrior_sheet.png",          64,  64,   8,   5,   6),
-    "mage":       ("mage_sheet.png",             64,  64,   8,   5,   6),
-    "healer":     ("healer_sheet.png",           64,  64,   8,   5,   6),
-    "ranger":     ("ranger_sheet.png",           64,  64,   8,   5,   6),
-    "shadow":     ("shadow_sheet.png",           64,  64,   6,   4,   5),
-    "dark_mage":  ("dark_mage_sheet.png",        64,  64,   6,   4,   5),
-    "boss_eclipse":("boss_eclipse_sheet.png",    80,  80,   6,   5,   7),
+    #  key             filename                 fw   fh  cols states spf
+    "warrior":    ("warrior_sheet.png",          96,  96,  15,   5,   5),
+    "mage":       ("mage_sheet.png",             96,  96,  15,   5,   5),
+    "healer":     ("healer_sheet.png",           96,  96,  15,   5,   5),
+    "ranger":     ("ranger_sheet.png",           96,  96,  15,   5,   5),
+    "shadow":     ("shadow_sheet.png",           96,  96,   8,   4,   4),
+    "dark_mage":  ("dark_mage_sheet.png",        96,  96,   8,   4,   4),
+    "boss_eclipse":("boss_eclipse_sheet.png",   120, 120,   8,   5,   6),
 }
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -67,8 +51,6 @@ class SpriteSheet:
         self.cols     = cols
         self.n_states = n_states
         self._sheet   = pygame.image.load(path).convert_alpha()
-        # Pre-cut semua frame ke surface kecil
-        # frames[state][col] = Surface
         self.frames = []
         for row in range(n_states):
             row_frames = []
@@ -88,16 +70,15 @@ class SpriteSheet:
 class CharacterAnimator:
     """
     Mengelola animasi satu karakter.
-    Menyimpan state saat ini, frame counter, dan bisa di-scale ke ukuran apapun.
     """
     def __init__(self, sheet: SpriteSheet, spf: int = 6):
-        self.sheet        = sheet
-        self.spf          = spf          # ticks per frame
-        self.state        = ANIM_IDLE
-        self.frame_idx    = 0
-        self.tick         = 0
-        self._queued_state = None        # setelah animasi selesai, kembali ke ini
-        self._one_shot    = False        # True → mainkan sekali lalu kembali ke idle
+        self.sheet         = sheet
+        self.spf           = spf
+        self.state         = ANIM_IDLE
+        self.frame_idx     = 0
+        self.tick          = 0
+        self._queued_state = None
+        self._one_shot     = False
 
     def set_state(self, state: int, one_shot: bool = False):
         if self.state == state and not one_shot:
@@ -129,19 +110,18 @@ class CharacterAnimator:
         return surf
 
     def is_done(self) -> bool:
-        """True jika one-shot sudah selesai satu siklus."""
         return self._one_shot is False and self._queued_state is None
 
 
 class AssetManager:
     """
-    Singleton manager: load semua sprite sheet saat init,
-    sediakan animator per karakter instance.
+    Singleton manager: load semua sprite sheet saat init.
     """
     def __init__(self):
         self._sheets:    dict[str, SpriteSheet]       = {}
-        self._animators: dict[int, CharacterAnimator] = {}  # id(char) → animator
-        self._bg: pygame.Surface | None               = None
+        self._animators: dict[int, CharacterAnimator] = {}
+        self._bg:        pygame.Surface | None        = None
+        self._menu_bg:   pygame.Surface | None        = None
         self._initialized = False
 
     def init(self):
@@ -150,7 +130,6 @@ class AssetManager:
             return
         self._initialized = True
 
-        # Load sprite sheets (skip kalau file tidak ada)
         for key, (fname, fw, fh, cols, n_states, spf) in SPRITE_CONFIG.items():
             path = os.path.join(IMAGES_DIR, fname)
             if os.path.isfile(path):
@@ -160,24 +139,31 @@ class AssetManager:
                 except Exception as e:
                     print(f"[AssetManager] Failed to load {key}: {e}")
             else:
-                print(f"[AssetManager] Sheet not found (will use fallback): {path}")
+                print(f"[AssetManager] Sheet not found (fallback): {path}")
 
-        # Load background
+        # Load battle background
         bg_path = os.path.join(BASE_DIR, "assets", "images", "backgrounds", "battle_bg.png")
         if os.path.isfile(bg_path):
             try:
-                raw = pygame.image.load(bg_path).convert()
                 from config import SCREEN_W, SCREEN_H
+                raw = pygame.image.load(bg_path).convert()
                 self._bg = pygame.transform.scale(raw, (SCREEN_W, SCREEN_H))
                 print("[AssetManager] Loaded battle background.")
             except Exception as e:
-                print(f"[AssetManager] Failed to load background: {e}")
+                print(f"[AssetManager] Failed to load battle_bg: {e}")
+
+        # Load menu background
+        menu_path = os.path.join(BASE_DIR, "assets", "images", "backgrounds", "menu_bg.png")
+        if os.path.isfile(menu_path):
+            try:
+                from config import SCREEN_W, SCREEN_H
+                raw = pygame.image.load(menu_path).convert()
+                self._menu_bg = pygame.transform.scale(raw, (SCREEN_W, SCREEN_H))
+                print("[AssetManager] Loaded menu background.")
+            except Exception as e:
+                print(f"[AssetManager] Failed to load menu_bg: {e}")
 
     def get_animator(self, char_obj, key: str) -> CharacterAnimator | None:
-        """
-        Ambil (atau buat) animator untuk karakter tertentu.
-        char_obj dipakai sebagai key unik via id().
-        """
         char_id = id(char_obj)
         if char_id not in self._animators:
             if key not in self._sheets:
@@ -191,16 +177,10 @@ class AssetManager:
         self._animators.pop(id(char_obj), None)
 
     def update_all(self):
-        """Panggil tiap frame agar semua animator tick."""
         for anim in self._animators.values():
             anim.update()
 
-    def draw_sprite(self, surf, key, center, size=(64, 64), flip=False):
-        """
-        Compatibility shim untuk kode lama yang pakai asset_manager.draw_sprite().
-        Menggambar frame idle dari sheet, di-center ke `center`.
-        Return True jika berhasil, False jika fallback.
-        """
+    def draw_sprite(self, surf, key, center, size=(96, 96), flip=False):
         if key not in self._sheets:
             return False
         sheet = self._sheets[key]
@@ -216,6 +196,9 @@ class AssetManager:
 
     def get_background(self) -> pygame.Surface | None:
         return self._bg
+
+    def get_menu_background(self) -> pygame.Surface | None:
+        return self._menu_bg
 
     def has_sheet(self, key: str) -> bool:
         return key in self._sheets
