@@ -7,7 +7,7 @@ import random
 import math
 
 from config import *
-from aset_game import asset_manager
+from aset_game import asset_manager, ANIM_IDLE, ANIM_RUN, ANIM_ATTACK, ANIM_HURT, ANIM_DIE
 
 # ─── PARTICLE SYSTEM ─────────────────────────────────────────────────────────
 class Particle:
@@ -950,6 +950,13 @@ class BattleScreen:
         self.hp_bars_h    = {h: HPBar(0, 0, 140, 14, h) for h in heroes}
         self.hp_bars_e    = {e: HPBar(0, 0, 120, 12, e) for e in self.enemies}
 
+        # Pastikan asset_manager sudah di-init dan buat animator per karakter
+        asset_manager.init()
+        for h in self.heroes:
+            asset_manager.get_animator(h, get_character_asset_key(h) or "warrior")
+        for e in self.enemies:
+            asset_manager.get_animator(e, get_character_asset_key(e) or "shadow")
+
         self.phase              = "player_turn"
         self.selected_hero_idx  = 0
         self.selected_enemy_idx = 0
@@ -985,16 +992,40 @@ class BattleScreen:
         return self.level_system.generate_enemies()
 
     def _build_layout(self):
-        hw, hh = 160, 110
-        gap = 14
-        sx  = 30
-        for i in range(len(self.heroes)):
-            self.hero_rects.append(pygame.Rect(sx + i * (hw + gap), SCREEN_H - hh - 14, hw, hh))
+        """
+        Layout baru: hero berjajar vertikal di sisi KIRI,
+        musuh berjajar vertikal di sisi KANAN.
+        Area tengah untuk info & VS label.
+        Skill panel tetap di bawah tengah.
 
-        ew, eh   = 150, 100
-        ex_start = SCREEN_W - (len(self.enemies) * (ew + gap)) - 20
-        for i in range(len(self.enemies)):
-            self.enemy_rects.append(pygame.Rect(ex_start + i * (ew + gap), 14, ew, eh))
+        Zona vertikal:
+          y=55  → y=SCREEN_H-270  : arena karakter
+          y=SCREEN_H-265 ke bawah : skill panel
+        """
+        arena_top    = 55
+        arena_bottom = SCREEN_H - 270
+        arena_h      = arena_bottom - arena_top
+
+        # ── HERO di sisi KIRI ────────────────────────────────────────────
+        hw, hh = 148, 108
+        n_h    = len(self.heroes)
+        # Bagi ruang vertikal rata, dengan gap minimal
+        total_hero_h = n_h * hh + (n_h - 1) * 10
+        hero_start_y = arena_top + (arena_h - total_hero_h) // 2
+        hero_x       = 14   # kiri layar
+        for i in range(n_h):
+            y = hero_start_y + i * (hh + 10)
+            self.hero_rects.append(pygame.Rect(hero_x, y, hw, hh))
+
+        # ── ENEMY di sisi KANAN ──────────────────────────────────────────
+        ew, eh = 138, 100
+        n_e    = len(self.enemies)
+        total_enemy_h = n_e * eh + (n_e - 1) * 10
+        enemy_start_y = arena_top + (arena_h - total_enemy_h) // 2
+        enemy_x       = SCREEN_W - ew - 14   # kanan layar
+        for i in range(n_e):
+            y = enemy_start_y + i * (eh + 10)
+            self.enemy_rects.append(pygame.Rect(enemy_x, y, ew, eh))
 
     def _available_heroes(self):
         return [h for h in self.heroes if h.alive and h not in self.acted_heroes]
@@ -1049,14 +1080,16 @@ class BattleScreen:
 
     def _build_skill_buttons(self, hero):
         self.skill_btns = []
-        bw, bh = 190, 42
+        bw, bh = 186, 42
+        # 2 kolom × 2 baris, di tengah bawah layar
         sx = SCREEN_W // 2 - (2 * bw + 10) // 2
+        sy = SCREEN_H - 248
         for i, sk in enumerate(hero.skills):
             col_map = {"attack": C_RED2, "defense": C_BLUE, "heal": C_GREEN2,
                        "heal_all": C_GREEN2, "aoe": C_PURPLE2, "multi": C_ORANGE}
             col = col_map.get(sk.skill_type, C_PANEL2)
             row, col_pos = divmod(i, 2)
-            btn = Button((sx + col_pos * (bw + 10), SCREEN_H - 240 + row * (bh + 8), bw, bh),
+            btn = Button((sx + col_pos * (bw + 10), sy + row * (bh + 8), bw, bh),
                           f"{sk.icon} {sk.name}", col, lerp_color(col, C_WHITE, 0.2), F_SMALL)
             self.skill_btns.append(btn)
 
@@ -1153,9 +1186,21 @@ class BattleScreen:
             pos = self._get_char_center(char)
             spawn_particles(pos[0], pos[1], col, count=20)
         self.anim_result = result
-        self.anim_timer  = 45
+        self.anim_timer  = 55
         self.turn_label  = "player"
         self.phase       = "anim"
+
+        # ── Trigger animasi attack pada hero ─────────────────────────────
+        anim_h = asset_manager.get_animator(hero, get_character_asset_key(hero) or "warrior")
+        if anim_h:
+            anim_h.set_state(ANIM_ATTACK, one_shot=True)
+        # Trigger animasi hurt pada target yang kena
+        if sk.skill_type not in ("heal", "heal_all", "defense"):
+            for char, _ in result.get("particles", []):
+                if char in self.enemies:
+                    anim_e = asset_manager.get_animator(char, get_character_asset_key(char) or "shadow")
+                    if anim_e:
+                        anim_e.set_state(ANIM_HURT, one_shot=True)
 
         # ── Charge animation: Warrior maju ke musuh saat attack/aoe ──────
         hero_idx = self.heroes.index(hero)
@@ -1182,8 +1227,11 @@ class BattleScreen:
             self.anim_charge_phase  = "charge"
             self.anim_charge_timer  = 0
             self.anim_hero_offset[hero_idx] = (0, 0)
-            # Extend anim_timer supaya cukup untuk animasi charge penuh
             self.anim_timer = 55
+            # Animasi RUN saat charge maju
+            anim_w = asset_manager.get_animator(hero, "warrior")
+            if anim_w:
+                anim_w.set_state(ANIM_RUN)
 
     def _update_charge_anim(self):
         """
@@ -1286,7 +1334,18 @@ class BattleScreen:
         for char, col in result.get("particles", []):
             pos = self._get_char_center(char)
             spawn_particles(pos[0], pos[1], col, count=18)
-        self.anim_timer = 45
+
+        # ── Trigger animasi attack musuh & hurt hero ──────────────────────
+        anim_e = asset_manager.get_animator(enemy, get_character_asset_key(enemy) or "shadow")
+        if anim_e:
+            anim_e.set_state(ANIM_ATTACK, one_shot=True)
+        for char, _ in result.get("particles", []):
+            if char in self.heroes:
+                anim_h = asset_manager.get_animator(char, get_character_asset_key(char) or "warrior")
+                if anim_h:
+                    anim_h.set_state(ANIM_HURT, one_shot=True)
+
+        self.anim_timer = 55
         self.turn_label = "enemy"
         self.phase      = "anim"
         if self.engine.winner:
@@ -1304,163 +1363,227 @@ class BattleScreen:
     def draw(self):
         screen.fill(C_BG)
         self._draw_bg_effects()
-        self._draw_level_badge()    # ← baru: tampilkan badge level
+        self._draw_arena()
         self._draw_enemies()
         self._draw_heroes()
+        self._draw_center_hud()
         self._draw_battle_log()
         self._draw_skills()
-        self._draw_turn_info()
+        self._draw_level_badge()
         update_particles(screen)
+        asset_manager.update_all()
         if self.phase == "result":
             self._draw_result()
 
+    # ── ARENA BACKGROUND ─────────────────────────────────────────────────────
+    def _draw_arena(self):
+        bg = asset_manager.get_background()
+        if bg:
+            screen.blit(bg, (0, 0))
+            ov = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
+            ov.fill((0, 0, 0, 55))
+            screen.blit(ov, (0, 0))
+        arena_mid_y = (55 + SCREEN_H - 270) // 2
+        pygame.draw.line(screen, (30, 45, 30),
+                         (160, arena_mid_y), (SCREEN_W - 160, arena_mid_y), 1)
+
     def _draw_level_badge(self):
-        """Tampilkan level saat ini dan difficulty stars di pojok kiri atas."""
-        lv = self.level_system.current_level
+        lv    = self.level_system.current_level
         stars = self.level_system.difficulty_stars()
         label = self.level_system.level_label()
-        badge_rect = pygame.Rect(8, 55, 180, 52)
+        badge_rect = pygame.Rect(8, SCREEN_H - 264, 160, 44)
         draw_rounded_rect(screen, C_PANEL, badge_rect, 10, border=2, border_color=C_GOLD)
-        draw_text(screen, f"Level {lv}  {label}", F_SMALL, C_GOLD, 16, 63)
-        draw_text(screen, stars, F_TINY, C_WHITE, 16, 85)
+        draw_text(screen, f"Lv.{lv}  {label}", F_SMALL, C_GOLD, 16, SCREEN_H - 258)
+        draw_text(screen, stars,               F_TINY,  C_WHITE, 16, SCREEN_H - 240)
 
     def _draw_bg_effects(self):
-        for x in range(0, SCREEN_W, 60):
-            pygame.draw.line(screen, (15, 22, 35), (x, 0), (x, SCREEN_H))
-        for y in range(0, SCREEN_H, 60):
-            pygame.draw.line(screen, (15, 22, 35), (0, y), (SCREEN_W, y))
-        glow_r = 180 + int(math.sin(self.tick * 0.03) * 20)
+        if not asset_manager.get_background():
+            for x in range(0, SCREEN_W, 60):
+                pygame.draw.line(screen, (15, 22, 35), (x, 0), (x, SCREEN_H))
+            for y in range(0, SCREEN_H, 60):
+                pygame.draw.line(screen, (15, 22, 35), (0, y), (SCREEN_W, y))
+        glow_r    = 180 + int(math.sin(self.tick * 0.03) * 20)
         glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
         for r in range(glow_r, 0, -20):
-            a = int(8 * (r / glow_r))
+            a = int(6 * (r / glow_r))
             pygame.draw.circle(glow_surf, (80, 20, 100, a), (glow_r, glow_r), r)
-        screen.blit(glow_surf, (SCREEN_W // 2 - glow_r, SCREEN_H // 2 - glow_r - 80))
+        screen.blit(glow_surf, (SCREEN_W // 2 - glow_r, SCREEN_H // 2 - glow_r - 60))
 
     def _draw_enemies(self):
         for i, (enemy, rect) in enumerate(zip(self.enemies, self.enemy_rects)):
-            selected = (i == self.selected_enemy_idx and enemy.alive and self.phase == "player_turn")
+            selected = (i == self.selected_enemy_idx
+                        and enemy.alive and self.phase == "player_turn")
             if not enemy.alive:
-                draw_rounded_rect(screen, (12, 12, 16), rect, 12, border=1, border_color=C_GRAY2)
-                draw_text_centered(screen, "💀 DEFEATED", F_TINY, C_GRAY, rect.centerx, rect.centery)
+                draw_rounded_rect(screen, (10, 10, 14), rect, 10,
+                                  border=1, border_color=C_GRAY2)
+                draw_text_centered(screen, "💀", F_MED, C_GRAY,
+                                   rect.centerx, rect.centery - 10)
+                draw_text_centered(screen, "DEFEATED", F_TINY, C_GRAY,
+                                   rect.centerx, rect.centery + 14)
                 continue
-            border = C_GOLD if selected else C_BORDER2
-            draw_rounded_rect(screen, C_SHADOW_E, rect, 12, border=3 if selected else 2, border_color=border)
+            border_col = C_GOLD if selected else C_BORDER2
+            border_w   = 3 if selected else 2
+            card_bg    = (30, 12, 12) if selected else C_SHADOW_E
+            draw_rounded_rect(screen, card_bg, rect, 12,
+                              border=border_w, border_color=border_col)
             if selected:
-                draw_text_centered(screen, "▼ TARGET", F_TINY, C_GOLD, rect.centerx, rect.bottom + 12)
+                pulse     = abs(math.sin(self.tick * 0.12))
+                arrow_col = lerp_color(C_RED, C_GOLD, pulse)
+                draw_text_centered(screen, "◀ TARGET", F_TINY, arrow_col,
+                                   rect.x - 42, rect.centery)
             if self.last_actor is enemy:
-                draw_text_centered(screen, "ACTION", F_TINY, C_RED, rect.centerx, rect.top - 10)
-            draw_character_sprite_or_icon(screen, enemy, (rect.centerx, rect.y + 30), (56, 56), F_BIG, flip=True)
-            draw_text_centered(screen, enemy.name, F_TINY, C_WHITE, rect.centerx, rect.y + 58)
+                draw_text_centered(screen, "⚡ ATK", F_TINY, C_RED,
+                                   rect.centerx, rect.top - 14)
+            sprite_size = (72, 72)
+            sprite_cx   = rect.centerx
+            sprite_cy   = rect.y + 36
+            key  = get_character_asset_key(enemy)
+            anim = asset_manager.get_animator(enemy, key or "shadow") if key else None
+            if anim:
+                frame = anim.get_surface(size=sprite_size, flip=True)
+                screen.blit(frame, (sprite_cx - sprite_size[0] // 2,
+                                    sprite_cy - sprite_size[1] // 2))
+            else:
+                draw_character_sprite_or_icon(screen, enemy,
+                                              (sprite_cx, sprite_cy),
+                                              sprite_size, F_BIG, flip=True)
+            draw_text_centered(screen, enemy.name, F_TINY, C_WHITE,
+                               rect.centerx, rect.y + 76)
             bar = self.hp_bars_e[enemy]
-            bar.x = rect.x + 8; bar.y = rect.y + 70; bar.w = rect.w - 16; bar.h = 14
+            bar.x = rect.x + 6; bar.y = rect.y + 86
+            bar.w = rect.w - 12; bar.h = 12
             bar.draw(screen)
-            draw_text_centered(screen, f"ATK:{enemy.attack} DEF:{enemy.defense}", F_TINY, C_GRAY, rect.centerx, rect.y + 90)
 
     def _draw_heroes(self):
         for i, (hero, rect) in enumerate(zip(self.heroes, self.hero_rects)):
-            is_selected   = (i == self.selected_hero_idx and self.phase == "player_turn"
-                             and hero.alive and hero not in self.acted_heroes)
+            is_selected   = (i == self.selected_hero_idx
+                             and self.phase == "player_turn"
+                             and hero.alive
+                             and hero not in self.acted_heroes)
             already_acted = hero in self.acted_heroes
-
-            # Ambil charge offset jika ada (untuk animasi Warrior maju)
-            ox, oy = self.anim_hero_offset.get(i, (0, 0))
-
+            ox, oy        = self.anim_hero_offset.get(i, (0, 0))
             if not hero.alive:
-                draw_rounded_rect(screen, (12, 12, 16), rect, 12, border=1, border_color=C_GRAY2)
-                draw_text_centered(screen, "💀", F_MED, C_GRAY, rect.centerx, rect.centery)
-                draw_text_centered(screen, "K.O.", F_TINY, C_GRAY, rect.centerx, rect.centery + 24)
+                draw_rounded_rect(screen, (10, 10, 14), rect, 10,
+                                  border=1, border_color=C_GRAY2)
+                draw_text_centered(screen, "💀", F_MED, C_GRAY,
+                                   rect.centerx, rect.centery - 10)
+                draw_text_centered(screen, "K.O.", F_TINY, C_GRAY,
+                                   rect.centerx, rect.centery + 14)
                 continue
-
-            bg_c     = (18, 22, 28) if already_acted else ((15, 35, 20) if is_selected else C_PANEL)
-            border_c = C_GRAY2 if already_acted else (hero.color if is_selected else C_BORDER)
-            draw_rounded_rect(screen, bg_c, rect, 12, border=3 if is_selected else 2, border_color=border_c)
-
+            if already_acted:
+                card_bg  = (14, 18, 22)
+                border_c = C_GRAY2
+            elif is_selected:
+                card_bg  = (12, 38, 22)
+                border_c = hero.color
+            else:
+                card_bg  = C_PANEL
+                border_c = C_BORDER
+            draw_rounded_rect(screen, card_bg, rect, 12,
+                              border=3 if is_selected else 2, border_color=border_c)
             if is_selected:
-                glow  = abs(math.sin(self.tick * 0.08))
+                glow   = abs(math.sin(self.tick * 0.08))
                 g_surf = pygame.Surface((rect.w + 20, rect.h + 20), pygame.SRCALPHA)
-                pygame.draw.rect(g_surf, (*hero.color, int(40 * glow)),
+                pygame.draw.rect(g_surf, (*hero.color, int(45 * glow)),
                                  (0, 0, rect.w + 20, rect.h + 20), border_radius=14)
                 screen.blit(g_surf, (rect.x - 10, rect.y - 10))
-
-            # ── Sprite: tambahkan offset charge jika warrior sedang charge ──
-            sprite_cx = rect.centerx + ox
-            sprite_cy = rect.y + 30 + oy
-
-            # Efek motion blur tipis saat charge (overlay transparan di posisi sebelumnya)
-            if ox != 0 or oy != 0:
-                blur_surf = pygame.Surface((58, 58), pygame.SRCALPHA)
-                blur_surf.set_alpha(55)
-                draw_character_sprite_or_icon(blur_surf, hero,
-                                              (29, 29), (58, 58), F_MED)
-                screen.blit(blur_surf,
-                            (sprite_cx - 29 - ox // 3, sprite_cy - 29 - oy // 3))
-
-            draw_character_sprite_or_icon(screen, hero, (sprite_cx, sprite_cy), (58, 58), F_MED)
-
+            sprite_size = (72, 72)
+            sprite_cx   = rect.centerx + ox
+            sprite_cy   = rect.y + 36 + oy
+            key  = get_character_asset_key(hero)
+            anim = asset_manager.get_animator(hero, key or "warrior") if key else None
+            if (ox != 0 or oy != 0) and anim:
+                blur = anim.get_surface(size=sprite_size, flip=False).copy()
+                blur.set_alpha(50)
+                screen.blit(blur, (sprite_cx - sprite_size[0]//2 - ox//3,
+                                   sprite_cy - sprite_size[1]//2 - oy//3))
+            if anim:
+                frame = anim.get_surface(size=sprite_size, flip=False)
+                screen.blit(frame, (sprite_cx - sprite_size[0] // 2,
+                                    sprite_cy - sprite_size[1] // 2))
+            else:
+                draw_character_sprite_or_icon(screen, hero,
+                                              (sprite_cx, sprite_cy),
+                                              sprite_size, F_MED)
             col_name = C_WHITE if not already_acted else C_GRAY
-            draw_text_centered(screen, hero.name, F_TINY, col_name, rect.centerx, rect.y + 58)
-            draw_text_centered(screen, hero.role, F_TINY, hero.color if not already_acted else C_GRAY,
-                               rect.centerx, rect.y + 72)
+            draw_text_centered(screen, hero.name, F_TINY, col_name,
+                               rect.centerx, rect.y + 76)
+            draw_text_centered(screen, hero.role, F_TINY,
+                               hero.color if not already_acted else C_GRAY,
+                               rect.centerx, rect.y + 88)
             bar = self.hp_bars_h[hero]
-            bar.x = rect.x + 8; bar.y = rect.y + 84; bar.w = rect.w - 16; bar.h = 14
+            bar.x = rect.x + 6; bar.y = rect.y + 92
+            bar.w = rect.w - 12; bar.h = 12
             bar.draw(screen)
-            draw_text_centered(screen, f"ATK:{hero.attack} DEF:{hero.defense}", F_TINY, C_GRAY,
-                               rect.centerx, rect.y + 104)
-
             if is_selected:
-                draw_text_centered(screen, "▲ ACTIVE", F_TINY, C_GREEN, rect.centerx, rect.top - 12)
+                draw_text_centered(screen, "▶ ACTIVE", F_TINY, C_GREEN,
+                                   rect.right + 38, rect.centery)
             elif already_acted:
-                draw_text_centered(screen, "DONE", F_TINY, C_GRAY, rect.centerx, rect.top - 12)
+                draw_text_centered(screen, "DONE ✓", F_TINY, C_GRAY,
+                                   rect.centerx, rect.top - 13)
 
-    def _draw_battle_log(self):
-        lx, ly, lw, lh = SCREEN_W - 310, 130, 290, 200
-        draw_rounded_rect(screen, C_PANEL, (lx, ly, lw, lh), 12, border=1, border_color=C_BORDER)
-        draw_text(screen, "📜 Battle Log", F_TINY, C_GOLD, lx + 10, ly + 8)
-        for i, msg in enumerate(self.engine.log[-7:]):
-            col = C_WHITE if i == len(self.engine.log[-7:]) - 1 else C_GRAY
-            txt = F_TINY.render(msg[:40], True, col)
-            screen.blit(txt, (lx + 8, ly + 28 + i * 22))
-
-    def _draw_skills(self):
-        if self.phase != "player_turn": return
-        hero = self._current_hero()
-        if not hero: return
-        panel_rect = (SCREEN_W // 2 - 230, SCREEN_H - 260, 460, 145)
-        draw_rounded_rect(screen, C_PANEL, panel_rect, 14, border=1, border_color=C_BORDER)
-        draw_text_centered(screen, f"Pilih Skill — {hero.name} ({hero.role})", F_SMALL, hero.color,
-                           SCREEN_W // 2, SCREEN_H - 250)
-        for btn in self.skill_btns:
-            btn.draw(screen)
-        target = self._current_target_enemy()
-        target_name = target.name if target else "-"
-        draw_text_centered(screen,
-                           f"Klik hero untuk pilih penyerang | Klik musuh untuk target: {target_name}",
-                           F_TINY, C_GRAY, SCREEN_W // 2, SCREEN_H - 115)
-
-    def _draw_turn_info(self):
+    def _draw_center_hud(self):
+        cx    = SCREEN_W // 2
+        vs_y  = (55 + SCREEN_H - 270) // 2
+        draw_text_centered(screen, "VS", F_BIG, (50, 50, 60), cx, vs_y)
         phase_text = {
             "player_turn": "🌿 PILIH HERO + SKILL",
             "anim":        "⚡ AKSI BERJALAN...",
-            "result":      "SELESAI",
+            "result":      "⚔️ SELESAI",
         }.get(self.phase, "")
-        col = C_GREEN if self.phase == "player_turn" else C_RED
-        draw_text_centered(screen, f"Round {self.engine.turn + 1} | {phase_text}",
-                           F_MED, col, SCREEN_W // 2, 12)
+        col = C_GREEN if self.phase == "player_turn" else C_GOLD
+        draw_text_centered(screen, f"Round {self.engine.turn + 1}  |  {phase_text}",
+                           F_MED, col, cx, 14)
         if self.phase == "player_turn":
-            remaining = len(self._available_heroes())
-            draw_text_centered(screen, f"Hero yang belum menyerang: {remaining}",
-                               F_TINY, C_GRAY, SCREEN_W // 2, 38)
-        draw_text_centered(screen, "— VS —", F_SMALL, C_GRAY, SCREEN_W // 2, SCREEN_H // 2 - 30)
+            rem = len(self._available_heroes())
+            draw_text_centered(screen, f"Hero belum menyerang: {rem}",
+                               F_TINY, C_GRAY, cx, 36)
+
+    def _draw_battle_log(self):
+        lw, lh = 300, 158
+        lx = SCREEN_W // 2 - lw // 2
+        ly = SCREEN_H - 270 - lh - 6
+        draw_rounded_rect(screen, (10, 14, 20), (lx, ly, lw, lh), 10,
+                          border=1, border_color=C_BORDER)
+        draw_text_centered(screen, "📜 Battle Log", F_TINY, C_GOLD, lx + lw // 2, ly + 9)
+        for i, msg in enumerate(self.engine.log[-6:]):
+            col = C_WHITE if i == len(self.engine.log[-6:]) - 1 else C_GRAY
+            txt = F_TINY.render(msg[:42], True, col)
+            screen.blit(txt, (lx + 8, ly + 26 + i * 22))
+
+    def _draw_skills(self):
+        if self.phase != "player_turn":
+            return
+        hero = self._current_hero()
+        if not hero:
+            return
+        pw, ph = SCREEN_W - 20, 158
+        px = 10
+        py = SCREEN_H - ph - 10
+        draw_rounded_rect(screen, (12, 16, 22), (px, py, pw, ph), 14,
+                          border=2, border_color=C_BORDER)
+        draw_text(screen, f"{hero.get_role_icon()} {hero.name}", F_SMALL, hero.color,
+                  px + 12, py + 10)
+        draw_text(screen, f"HP {hero.hp}/{hero.max_hp}  ATK {hero.attack}  DEF {hero.defense}",
+                  F_TINY, C_GRAY, px + 12, py + 30)
+        target = self._current_target_enemy()
+        target_name = target.name if target else "-"
+        draw_text(screen, f"Target: {target_name}", F_TINY, C_GOLD, px + 12, py + 46)
+        for btn in self.skill_btns:
+            btn.draw(screen)
+        draw_text_centered(screen,
+                           "Klik kartu hero = pilih penyerang  |  Klik kartu musuh = pilih target",
+                           F_TINY, (60, 70, 80), SCREEN_W // 2, py + ph - 10)
 
     def _draw_result(self):
         ov = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
-        ov.fill((0, 0, 0, 160))
+        ov.fill((0, 0, 0, 170))
         screen.blit(ov, (0, 0))
         won   = self.engine.winner == "hero"
         title = "🌿 LEVEL CLEAR!" if won else "🌑 ECLIPSE MENANG!"
-        msg   = "Klik untuk melihat reward..." if won else "Kegelapan menyelimuti dunia..."
+        msg   = "Klik untuk lanjut..." if won else "Kegelapan menyelimuti dunia..."
         col   = C_GREEN if won else C_RED
-        box   = pygame.Rect(SCREEN_W // 2 - 260, SCREEN_H // 2 - 120, 520, 240)
+        box   = pygame.Rect(SCREEN_W // 2 - 270, SCREEN_H // 2 - 120, 540, 240)
         draw_rounded_rect(screen, C_DARK, box, 20, border=3, border_color=col)
         draw_text_centered(screen, title, F_BIG, col, SCREEN_W // 2, SCREEN_H // 2 - 70)
         draw_text_centered(screen, msg,   F_MED, C_WHITE, SCREEN_W // 2, SCREEN_H // 2 - 20)
