@@ -1096,10 +1096,9 @@ class BattleScreen:
 
     def _build_layout(self):
         """
-        Layout baru: hero berjajar vertikal di sisi KIRI,
-        musuh berjajar vertikal di sisi KANAN.
-        Area tengah untuk info & VS label.
-        Skill panel tetap di bawah tengah.
+        Layout tanpa kotak: hero di sisi KIRI, musuh di sisi KANAN.
+        Rect hanya dipakai sebagai zona klik & acuan posisi sprite — tidak ada
+        kotak yang digambar. Sprite langsung tampil di atas background.
 
         Zona vertikal:
           y=55  -> y=SCREEN_H-270  : arena karakter
@@ -1109,25 +1108,24 @@ class BattleScreen:
         arena_bottom = SCREEN_H - 270
         arena_h      = arena_bottom - arena_top
 
-        # ── HERO di sisi KIRI ────────────────────────────────────────────
-        hw, hh = 148, 108
+        # ── HERO di kiri-tengah ─────────────────────────────────────────────
+        hw, hh = 110, 120   # zona klik per hero (tidak digambar)
         n_h    = len(self.heroes)
-        # Bagi ruang vertikal rata, dengan gap minimal
-        total_hero_h = n_h * hh + (n_h - 1) * 10
+        total_hero_h = n_h * hh + (n_h - 1) * 14
         hero_start_y = arena_top + (arena_h - total_hero_h) // 2
-        hero_x       = 14   # kiri layar
+        hero_x       = 20   # sedikit lebih ke kiri
         for i in range(n_h):
-            y = hero_start_y + i * (hh + 10)
+            y = hero_start_y + i * (hh + 14)
             self.hero_rects.append(pygame.Rect(hero_x, y, hw, hh))
 
-        # ── ENEMY di sisi KANAN ──────────────────────────────────────────
-        ew, eh = 138, 100
+        # ── ENEMY di kanan-tengah ───────────────────────────────────────────
+        ew, eh = 110, 115   # zona klik per musuh
         n_e    = len(self.enemies)
-        total_enemy_h = n_e * eh + (n_e - 1) * 10
+        total_enemy_h = n_e * eh + (n_e - 1) * 14
         enemy_start_y = arena_top + (arena_h - total_enemy_h) // 2
-        enemy_x       = SCREEN_W - ew - 14   # kanan layar
+        enemy_x       = SCREEN_W - ew - 20
         for i in range(n_e):
-            y = enemy_start_y + i * (eh + 10)
+            y = enemy_start_y + i * (eh + 14)
             self.enemy_rects.append(pygame.Rect(enemy_x, y, ew, eh))
 
     def _available_heroes(self):
@@ -1508,35 +1506,50 @@ class BattleScreen:
         screen.blit(glow_surf, (SCREEN_W // 2 - glow_r, SCREEN_H // 2 - glow_r - 60))
 
     def _draw_enemies(self):
+        sprite_size = (90, 90)
         for i, (enemy, rect) in enumerate(zip(self.enemies, self.enemy_rects)):
             selected = (i == self.selected_enemy_idx
                         and enemy.alive and self.phase == "player_turn")
+
+            sprite_cx = rect.centerx
+            sprite_cy = rect.centery - 10
+
             if not enemy.alive:
-                draw_rounded_rect(screen, (10, 10, 14), rect, 10,
-                                  border=1, border_color=C_GRAY2)
-                draw_text_centered(screen, "[D]", F_MED, C_GRAY,
-                                   rect.centerx, rect.centery - 10)
+                key  = get_character_asset_key(enemy)
+                anim = asset_manager.get_animator(enemy, key or "shadow") if key else None
+                if anim:
+                    ghost = anim.get_surface(size=sprite_size, flip=True).copy()
+                    ghost.set_alpha(35)
+                    screen.blit(ghost, (sprite_cx - sprite_size[0]//2,
+                                        sprite_cy - sprite_size[1]//2))
                 draw_text_centered(screen, "DEFEATED", F_TINY, C_GRAY,
-                                   rect.centerx, rect.centery + 14)
+                                   sprite_cx, sprite_cy + sprite_size[1]//2 + 8)
                 continue
-            border_col = C_GOLD if selected else C_BORDER2
-            border_w   = 3 if selected else 2
-            card_bg    = (30, 12, 12) if selected else C_SHADOW_E
-            draw_rounded_rect(screen, card_bg, rect, 12,
-                              border=border_w, border_color=border_col)
-            if selected:
-                pulse     = abs(math.sin(self.tick * 0.12))
-                arrow_col = lerp_color(C_RED, C_GOLD, pulse)
-                draw_text_centered(screen, "< TARGET", F_TINY, arrow_col,
-                                   rect.x - 42, rect.centery)
-            if self.last_actor is enemy:
-                draw_text_centered(screen, ">> ATK", F_TINY, C_RED,
-                                   rect.centerx, rect.top - 14)
-            sprite_size = (72, 72)
-            sprite_cx   = rect.centerx
-            sprite_cy   = rect.y + 36
+
             key  = get_character_asset_key(enemy)
             anim = asset_manager.get_animator(enemy, key or "shadow") if key else None
+
+            # Red glow ring di bawah musuh yang jadi target
+            if selected:
+                pulse  = 0.5 + 0.5 * abs(math.sin(self.tick * 0.12))
+                radius = 38
+                glow_surf = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
+                pygame.draw.ellipse(glow_surf,
+                                    (220, 60, 60, int(90 * pulse)),
+                                    (0, 0, radius*2, radius*2))
+                screen.blit(glow_surf, (sprite_cx - radius,
+                                        sprite_cy + sprite_size[1]//2 - 14 - radius))
+
+                # Panah target
+                arrow_col = lerp_color(C_RED, C_GOLD, pulse)
+                draw_text_centered(screen, "▼ TARGET", F_TINY, arrow_col,
+                                   sprite_cx, sprite_cy - sprite_size[1]//2 - 14)
+
+            if self.last_actor is enemy:
+                draw_text_centered(screen, ">> ATK", F_TINY, C_RED,
+                                   sprite_cx, sprite_cy - sprite_size[1]//2 - 26)
+
+            # Sprite
             if anim:
                 frame = anim.get_surface(size=sprite_size, flip=True)
                 screen.blit(frame, (sprite_cx - sprite_size[0] // 2,
@@ -1545,14 +1558,28 @@ class BattleScreen:
                 draw_character_sprite_or_icon(screen, enemy,
                                               (sprite_cx, sprite_cy),
                                               sprite_size, F_BIG, flip=True)
-            draw_text_centered(screen, enemy.name, F_TINY, C_WHITE,
-                               rect.centerx, rect.y + 76)
+
+            # ── Floating HUD di bawah sprite ────────────────────────────────
+            bar_y = sprite_cy + sprite_size[1]//2 - 4
+            bar_w = 104
+            bar_h = 10
+            bar_x = sprite_cx - bar_w // 2
+
+            bg_pill = pygame.Surface((bar_w + 6, bar_h + 12), pygame.SRCALPHA)
+            bg_pill.fill((8, 6, 20, 180))
+            screen.blit(bg_pill, (bar_x - 3, bar_y - 1))
+
             bar = self.hp_bars_e[enemy]
-            bar.x = rect.x + 6; bar.y = rect.y + 86
-            bar.w = rect.w - 12; bar.h = 12
+            bar.x = bar_x; bar.y = bar_y
+            bar.w = bar_w; bar.h = bar_h
             bar.draw(screen)
 
+            draw_text_centered(screen, enemy.name, F_TINY,
+                               C_GOLD if selected else C_WHITE,
+                               sprite_cx, bar_y - 13)
+
     def _draw_heroes(self):
+        sprite_size = (90, 90)
         for i, (hero, rect) in enumerate(zip(self.heroes, self.hero_rects)):
             is_selected   = (i == self.selected_hero_idx
                              and self.phase == "player_turn"
@@ -1560,65 +1587,91 @@ class BattleScreen:
                              and hero not in self.acted_heroes)
             already_acted = hero in self.acted_heroes
             ox, oy        = self.anim_hero_offset.get(i, (0, 0))
+
+            # Sprite center — sprite berdiri bebas di atas arena, tanpa kotak
+            sprite_cx = rect.centerx + ox
+            sprite_cy = rect.centery - 10 + oy
+
             if not hero.alive:
-                draw_rounded_rect(screen, (10, 10, 14), rect, 10,
-                                  border=1, border_color=C_GRAY2)
-                draw_text_centered(screen, "[D]", F_MED, C_GRAY,
-                                   rect.centerx, rect.centery - 10)
+                # Ghost / KO: gambar sprite redup dengan label KO
+                key  = get_character_asset_key(hero)
+                anim = asset_manager.get_animator(hero, key or "warrior") if key else None
+                ghost_surf = pygame.Surface(sprite_size, pygame.SRCALPHA)
+                if anim:
+                    base = anim.get_surface(size=sprite_size, flip=False)
+                    ghost_surf.blit(base, (0, 0))
+                    ghost_surf.set_alpha(45)
+                    screen.blit(ghost_surf, (sprite_cx - sprite_size[0]//2,
+                                             sprite_cy - sprite_size[1]//2))
                 draw_text_centered(screen, "K.O.", F_TINY, C_GRAY,
-                                   rect.centerx, rect.centery + 14)
+                                   sprite_cx, sprite_cy + sprite_size[1]//2 + 8)
                 continue
-            if already_acted:
-                card_bg  = (14, 18, 22)
-                border_c = C_GRAY2
-            elif is_selected:
-                card_bg  = (12, 38, 22)
-                border_c = hero.color
-            else:
-                card_bg  = C_PANEL
-                border_c = C_BORDER
-            draw_rounded_rect(screen, card_bg, rect, 12,
-                              border=3 if is_selected else 2, border_color=border_c)
-            if is_selected:
-                glow   = abs(math.sin(self.tick * 0.08))
-                g_surf = pygame.Surface((rect.w + 20, rect.h + 20), pygame.SRCALPHA)
-                pygame.draw.rect(g_surf, (*hero.color, int(45 * glow)),
-                                 (0, 0, rect.w + 20, rect.h + 20), border_radius=14)
-                screen.blit(g_surf, (rect.x - 10, rect.y - 10))
-            sprite_size = (72, 72)
-            sprite_cx   = rect.centerx + ox
-            sprite_cy   = rect.y + 36 + oy
+
             key  = get_character_asset_key(hero)
             anim = asset_manager.get_animator(hero, key or "warrior") if key else None
+
+            # Glow ring di bawah sprite untuk hero yang sedang aktif
+            if is_selected:
+                glow   = 0.5 + 0.5 * abs(math.sin(self.tick * 0.08))
+                radius = 36
+                glow_surf = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
+                pygame.draw.ellipse(glow_surf,
+                                    (*hero.color, int(80 * glow)),
+                                    (0, 0, radius*2, radius*2))
+                screen.blit(glow_surf, (sprite_cx - radius,
+                                        sprite_cy + sprite_size[1]//2 - 12 - radius))
+
+            # Motion blur saat charge
             if (ox != 0 or oy != 0) and anim:
                 blur = anim.get_surface(size=sprite_size, flip=False).copy()
                 blur.set_alpha(50)
                 screen.blit(blur, (sprite_cx - sprite_size[0]//2 - ox//3,
                                    sprite_cy - sprite_size[1]//2 - oy//3))
+
+            # Sprite utama
             if anim:
                 frame = anim.get_surface(size=sprite_size, flip=False)
+                # Redup jika sudah act
+                if already_acted:
+                    frame = frame.copy()
+                    frame.set_alpha(130)
                 screen.blit(frame, (sprite_cx - sprite_size[0] // 2,
                                     sprite_cy - sprite_size[1] // 2))
             else:
                 draw_character_sprite_or_icon(screen, hero,
                                               (sprite_cx, sprite_cy),
                                               sprite_size, F_MED)
-            col_name = C_WHITE if not already_acted else C_GRAY
-            draw_text_centered(screen, hero.name, F_TINY, col_name,
-                               rect.centerx, rect.y + 76)
-            draw_text_centered(screen, hero.role, F_TINY,
-                               hero.color if not already_acted else C_GRAY,
-                               rect.centerx, rect.y + 88)
+
+            # ── Floating HUD di bawah sprite ────────────────────────────────
+            bar_y  = sprite_cy + sprite_size[1]//2 - 4
+            bar_w  = 110
+            bar_h  = 10
+            bar_x  = sprite_cx - bar_w // 2
+
+            # Latar HP bar — semi transparan pill
+            bg_pill = pygame.Surface((bar_w + 6, bar_h + 12), pygame.SRCALPHA)
+            bg_pill.fill((8, 6, 20, 180))
+            pygame.draw.rect(bg_pill, (0,0,0,0), bg_pill.get_rect(),
+                             border_radius=8)
+            screen.blit(bg_pill, (bar_x - 3, bar_y - 1))
+
             bar = self.hp_bars_h[hero]
-            bar.x = rect.x + 6; bar.y = rect.y + 92
-            bar.w = rect.w - 12; bar.h = 12
+            bar.x = bar_x; bar.y = bar_y
+            bar.w = bar_w; bar.h = bar_h
             bar.draw(screen)
+
+            # Nama hero + role — di atas HP bar
+            col_name = hero.color if is_selected else (C_WHITE if not already_acted else C_GRAY)
+            draw_text_centered(screen, hero.name, F_TINY, col_name,
+                               sprite_cx, bar_y - 13)
+
+            # Label status
             if is_selected:
                 draw_text_centered(screen, "▶ ACTIVE", F_TINY, C_GREEN,
-                                   rect.right + 38, rect.centery)
+                                   sprite_cx, bar_y + bar_h + 6)
             elif already_acted:
                 draw_text_centered(screen, "DONE", F_TINY, C_GRAY,
-                                   rect.centerx, rect.top - 13)
+                                   sprite_cx, bar_y + bar_h + 6)
 
     def _draw_center_hud(self):
         cx   = SCREEN_W // 2
