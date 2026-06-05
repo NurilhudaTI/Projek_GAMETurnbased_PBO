@@ -1,5 +1,3 @@
-"""Main game loop — Monstera Eclipse dengan sistem level bertahap."""
-
 import pygame
 import sys
 from config import *
@@ -8,7 +6,6 @@ from game import (
     BattleScreen, LevelUpScreen, GameClearScreen,
     LevelSystem, particles
 )
-
 
 def main():
     pygame.init()
@@ -30,7 +27,7 @@ def main():
     heroes       = []
     level_system = LevelSystem()   # ← satu instance sepanjang run game
 
-    # ── BGM ──────────────────────────────────────────────────────────────────
+    # BGM
     # Init asset manager early
     from aset_game import asset_manager
     from sfx_manager import sfx
@@ -48,7 +45,7 @@ def main():
 
     play_music("menu_theme")
 
-    # ── MAIN LOOP ─────────────────────────────────────────────────────────────
+    # MAIN LOOP
     while True:
         events = pygame.event.get()
         for e in events:
@@ -56,7 +53,7 @@ def main():
                 pygame.quit()
                 sys.exit()
 
-        # ── MENU ──────────────────────────────────────────────────────────
+        # MENU
         if state == "menu":
             # Reset level system setiap kali kembali ke menu
             level_system = LevelSystem()
@@ -74,7 +71,7 @@ def main():
                 settings_screen = SettingsScreen(music_on)
                 state = "settings"
 
-        # ── SETTINGS ──────────────────────────────────────────────────────
+        # SETTINGS
         elif state == "settings":
             result, music_on = settings_screen.update(events)
             settings_screen.draw()
@@ -85,7 +82,7 @@ def main():
             if result == "menu":
                 state = "menu"
 
-        # ── PARTY SELECT ──────────────────────────────────────────────────
+        # PARTY SELECT
         elif state == "select_party":
             result, data = party_screen.update(events)
             party_screen.draw()
@@ -98,7 +95,7 @@ def main():
                 play_music("battle_theme")
                 state = "battle"
 
-        # ── BATTLE ────────────────────────────────────────────────────────
+        # BATTLE
         elif state == "battle":
             result = battle_screen.update(events)
             battle_screen.draw()
@@ -129,7 +126,7 @@ def main():
                 # Hero kalah → balik ke menu
                 state = "menu"
 
-        # ── LEVEL UP (transisi) ───────────────────────────────────────────
+        # LEVEL UP (transisi)
         elif state == "level_up":
             result = levelup_screen.update(events)
             levelup_screen.draw()
@@ -141,7 +138,7 @@ def main():
             elif result == "menu":
                 state = "menu"
 
-        # ── GAME CLEAR ────────────────────────────────────────────────────
+        # GAME CLEAR
         elif state == "game_clear":
             result = gameclear_screen.update(events)
             gameclear_screen.draw()

@@ -1,8 +1,3 @@
-"""
-MONSTERA ECLIPSE - Turn-Based RPG
-Implementasi PBO: Abstraction, Inheritance, Encapsulation, Polymorphism
-"""
-
 import pygame
 import sys
 import random
@@ -12,7 +7,7 @@ import os
 pygame.init()
 pygame.mixer.init()
 
-# ─── CONSTANTS ───────────────────────────────────────────────────────────────
+# CONSTANTS
 SCREEN_W, SCREEN_H = 1100, 700
 FPS = 60
 
@@ -46,7 +41,7 @@ screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
 pygame.display.set_caption("Monstera Eclipse")
 clock = pygame.time.Clock()
 
-# ─── FONTS ───────────────────────────────────────────────────────────────────
+# FONTS
 def load_font(size, bold=False):
     try:
         return pygame.font.SysFont("segoeui", size, bold=bold)
@@ -59,7 +54,7 @@ F_MED    = load_font(24, bold=True)
 F_SMALL  = load_font(18)
 F_TINY   = load_font(14)
 
-# ─── UTILITY ─────────────────────────────────────────────────────────────────
+# UTILITY
 def draw_rounded_rect(surf, color, rect, radius=12, border=0, border_color=None):
     pygame.draw.rect(surf, color, rect, border_radius=radius)
     if border and border_color:
