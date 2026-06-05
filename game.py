@@ -1105,7 +1105,7 @@ class BattleScreen:
           y=SCREEN_H-265 ke bawah : skill panel
         """
         arena_top    = 55
-        arena_bottom = SCREEN_H - 270
+        arena_bottom = SCREEN_H - 110   # lebih pendek dari sebelumnya (skill di bawah)
         arena_h      = arena_bottom - arena_top
 
         # ── HERO di kiri-tengah ─────────────────────────────────────────────
@@ -1181,10 +1181,10 @@ class BattleScreen:
 
     def _build_skill_buttons(self, hero):
         self.skill_btns = []
-        bw, bh = 186, 42
-        # 2 kolom × 2 baris, di tengah bawah layar
+        bw, bh = 200, 44
+        # 2 kolom × 2 baris, di bawah tengah layar
         sx = SCREEN_W // 2 - (2 * bw + 10) // 2
-        sy = SCREEN_H - 248
+        sy = SCREEN_H - 100  # lebih ke bawah, tanpa panel besar
         for i, sk in enumerate(hero.skills):
             col_map = {"attack": C_RED2, "defense": C_BLUE, "heal": C_GREEN2,
                        "heal_all": C_GREEN2, "aoe": C_PURPLE2, "multi": C_ORANGE}
@@ -1482,12 +1482,24 @@ class BattleScreen:
     # ── ARENA BACKGROUND ─────────────────────────────────────────────────────
     def _draw_arena(self):
         bg = asset_manager.get_background()
+        if not bg:
+            # Load langsung jika asset_manager gagal
+            import os
+            bg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                   "assets", "images", "backgrounds", "battle_bg")
+            if os.path.isfile(bg_path):
+                raw = pygame.image.load(bg_path).convert()
+                bg = pygame.transform.scale(raw, (SCREEN_W, SCREEN_H))
+                # Simpan ke asset_manager agar tidak load ulang tiap frame
+                asset_manager._bg = bg
+
         if bg:
             screen.blit(bg, (0, 0))
             ov = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
             ov.fill((0, 0, 0, 55))
             screen.blit(ov, (0, 0))
-        arena_mid_y = (55 + SCREEN_H - 270) // 2
+
+        arena_mid_y = (55 + SCREEN_H - 110) // 2
         pygame.draw.line(screen, (30, 45, 30),
                          (160, arena_mid_y), (SCREEN_W - 160, arena_mid_y), 1)
 
@@ -1702,7 +1714,7 @@ class BattleScreen:
             draw_text_centered(screen, f"Hero siap: {rem}", F_TINY, col2, cx, 32)
 
         # VS badge di tengah arena
-        vs_y = (bar_h + SCREEN_H - 270) // 2
+        vs_y = (bar_h + SCREEN_H - 110) // 2
         vs_surf = pygame.Surface((54, 30), pygame.SRCALPHA)
         pygame.draw.rect(vs_surf, (20, 14, 40, 200), vs_surf.get_rect(), border_radius=8)
         pygame.draw.rect(vs_surf, C_PURPLE, vs_surf.get_rect(), 1, border_radius=8)
@@ -1710,68 +1722,119 @@ class BattleScreen:
         draw_text_centered(screen, "VS", F_SMALL, C_PURPLE, cx, vs_y - 2)
 
     def _draw_battle_log(self):
-        lw, lh = 340, 162
-        lx = SCREEN_W // 2 - lw // 2
-        ly = SCREEN_H - 270 - lh - 8
+        # Battle log di pojok KANAN ATAS
+        lw, lh = 300, 150
+        lx = SCREEN_W - lw - 8
+        ly = 55  # tepat di bawah top HUD bar
 
         # Panel with slight blur background
         bg = pygame.Surface((lw, lh), pygame.SRCALPHA)
-        bg.fill((8, 6, 18, 220))
+        bg.fill((8, 6, 18, 210))
         screen.blit(bg, (lx, ly))
         pygame.draw.rect(screen, C_GOLD, (lx, ly, lw, lh), 1, border_radius=10)
 
         # Header
-        pygame.draw.rect(screen, (20, 16, 40), (lx, ly, lw, 22), border_radius=10)
-        draw_text_centered(screen, "BATTLE LOG", F_TINY, C_GOLD, lx + lw // 2, ly + 6)
+        pygame.draw.rect(screen, (20, 16, 40), (lx, ly, lw, 20), border_radius=10)
+        draw_text_centered(screen, "BATTLE LOG", F_TINY, C_GOLD, lx + lw // 2, ly + 5)
 
-        msgs = self.engine.log[-6:]
+        msgs = self.engine.log[-5:]
         for i, msg in enumerate(msgs):
             alpha = int(120 + 135 * (i / max(len(msgs)-1, 1)))
             col   = (alpha, alpha, min(255, alpha + 20))
             if i == len(msgs) - 1:
                 col = C_WHITE
-            txt = F_TINY.render(msg[:44], True, col)
-            screen.blit(txt, (lx + 10, ly + 26 + i * 22))
+            txt = F_TINY.render(msg[:38], True, col)
+            screen.blit(txt, (lx + 8, ly + 24 + i * 22))
 
     def _draw_skills(self):
+        # ── Status karakter: pojok KIRI ATAS, kecil & compact ────────────────
+        self._draw_hero_status_panel()
+
         if self.phase != "player_turn":
             return
         hero = self._current_hero()
         if not hero:
             return
-        pw, ph = SCREEN_W - 20, 162
-        px = 10
-        py = SCREEN_H - ph - 10
 
-        # Panel background
-        panel_surf = pygame.Surface((pw, ph), pygame.SRCALPHA)
-        panel_surf.fill((10, 8, 22, 230))
-        screen.blit(panel_surf, (px, py))
-        pygame.draw.rect(screen, hero.color, (px, py, pw, ph), 2, border_radius=14)
+        # ── Skill buttons di BAWAH TENGAH ────────────────────────────────────
+        # Semi-transparent backdrop untuk area skill
+        skill_backdrop = pygame.Surface((SCREEN_W, 110), pygame.SRCALPHA)
+        skill_backdrop.fill((5, 4, 15, 180))
+        screen.blit(skill_backdrop, (0, SCREEN_H - 110))
+        pygame.draw.line(screen, (50, 50, 80), (0, SCREEN_H - 110), (SCREEN_W, SCREEN_H - 110), 1)
 
-        # Hero info — left side
-        ratio = hero.hp / hero.max_hp
-        hp_col = C_GREEN if ratio > 0.55 else (C_GOLD if ratio > 0.28 else C_RED)
-        draw_text(screen, hero.name,     F_SMALL, hero.color, px + 14, py + 10)
-        draw_text(screen, hero.role,     F_TINY,  C_GRAY,     px + 14, py + 28)
-        draw_text(screen, f"HP  {hero.hp}/{hero.max_hp}", F_TINY, hp_col, px + 14, py + 44)
-        draw_text(screen, f"ATK {hero.attack}   DEF {hero.defense}   SPD {hero.speed}",
-                  F_TINY, C_GRAY, px + 14, py + 60)
-
-        target = self._current_target_enemy()
-        if target:
-            draw_text(screen, f"Target: {target.name}", F_TINY, C_GOLD, px + 14, py + 76)
-
-        # Divider
-        pygame.draw.line(screen, (40, 36, 70), (px + 160, py + 8), (px + 160, py + ph - 8), 1)
-
-        # Skill buttons (already drawn by skill_btns)
         for btn in self.skill_btns:
             btn.draw(screen)
 
-        # Help text bottom
+        # Help text
         draw_text_centered(screen, "Klik hero = pilih  |  Klik musuh = ganti target",
-                           F_TINY, (55, 60, 80), SCREEN_W // 2, py + ph - 12)
+                           F_TINY, (100, 110, 140), SCREEN_W // 2, SCREEN_H - 12)
+
+    def _draw_hero_status_panel(self):
+        """Status karakter di pojok kiri atas — compact mini panel."""
+        hero = self._current_hero()
+        panel_w = 200
+        panel_x = 8
+        panel_y = 55  # tepat di bawah top HUD
+        row_h   = 36
+        n       = len(self.heroes)
+        panel_h = n * row_h + 8
+
+        bg = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        bg.fill((8, 6, 18, 195))
+        screen.blit(bg, (panel_x, panel_y))
+        pygame.draw.rect(screen, (50, 50, 80), (panel_x, panel_y, panel_w, panel_h), 1, border_radius=8)
+
+        for i, h in enumerate(self.heroes):
+            ry = panel_y + 4 + i * row_h
+            is_active = (h is hero and self.phase == "player_turn"
+                         and h.alive and h not in self.acted_heroes)
+            already_acted = h in self.acted_heroes
+
+            # Highlight baris aktif
+            if is_active:
+                hl = pygame.Surface((panel_w - 4, row_h - 2), pygame.SRCALPHA)
+                hl.fill((*h.color[:3], 40))
+                screen.blit(hl, (panel_x + 2, ry))
+
+            # Warna nama
+            if not h.alive:
+                name_col = C_GRAY
+            elif is_active:
+                name_col = h.color
+            elif already_acted:
+                name_col = C_GRAY
+            else:
+                name_col = C_WHITE
+
+            # Indikator aktif
+            prefix = "▶ " if is_active else ("✓ " if already_acted else "  ")
+            draw_text(screen, f"{prefix}{h.name}", F_TINY, name_col, panel_x + 6, ry + 2)
+
+            # HP bar kecil
+            ratio = h.hp / h.max_hp if h.alive else 0
+            bar_x = panel_x + 6
+            bar_y = ry + 18
+            bar_w = panel_w - 16
+            bar_h = 7
+            draw_rounded_rect(screen, (25, 22, 45), (bar_x, bar_y, bar_w, bar_h), 3)
+            if ratio > 0:
+                hp_col = (60, 210, 100) if ratio > 0.55 else ((230, 170, 40) if ratio > 0.28 else (220, 55, 55))
+                fill_w = max(3, int(bar_w * ratio))
+                draw_rounded_rect(screen, hp_col, (bar_x, bar_y, fill_w, bar_h), 3)
+            # HP text di sebelah kanan bar
+            hp_str = f"{h.hp}/{h.max_hp}" if h.alive else "K.O."
+            hp_txt = F_TINY.render(hp_str, True, C_GRAY if not h.alive else C_WHITE)
+            screen.blit(hp_txt, (panel_x + panel_w - hp_txt.get_width() - 4, ry + 2))
+
+        # Target info
+        target = self._current_target_enemy()
+        if target and self.phase == "player_turn":
+            ty = panel_y + panel_h + 4
+            tpanel = pygame.Surface((panel_w, 22), pygame.SRCALPHA)
+            tpanel.fill((30, 10, 10, 180))
+            screen.blit(tpanel, (panel_x, ty))
+            draw_text(screen, f"Target: {target.name}", F_TINY, C_GOLD, panel_x + 6, ty + 4)
 
     def _draw_result(self):
         ov = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
