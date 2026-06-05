@@ -104,4 +104,4 @@ Semua atribut sensitif karakter disimpan sebagai private (`_hp`, `_attack`, `_de
 Method `use_skill()` dipanggil dengan cara yang **identik** untuk semua karakter, namun menghasilkan efek yang **sama sekali berbeda** tergantung subclass-nya. Begitu juga `ai_turn()` pada musuh — `Shadow` selalu menyerang hero dengan HP paling rendah, `DarkMage` sering memilih AOE, dan `BossEclipse` mengubah pola serangannya secara dinamis berdasarkan sisa HP. Ini adalah polymorphism murni: satu interface, banyak perilaku.
 
 
-Repository GitHub:
+Repository GitHub: https://github.com/NurilhudaTI/Projek_GAMETurnbased_PBO
