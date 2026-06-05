@@ -871,15 +871,29 @@ class MenuScreen:
     def __init__(self):
         self.tick = 0
         self.buttons = [
-            Button((SCREEN_W // 2 - 130, 330, 260, 52), "START GAME", C_GREEN2, C_GREEN, F_BIG),
-            Button((SCREEN_W // 2 - 130, 400, 260, 52), "SETTINGS",   C_PANEL2, C_PANEL, F_BIG),
-            Button((SCREEN_W // 2 - 130, 470, 260, 52), "EXIT",        C_RED2,   C_RED,   F_BIG),
+            Button((SCREEN_W // 2 - 130, 390, 260, 52), "START GAME", C_GREEN2, C_GREEN, F_BIG),
+            Button((SCREEN_W // 2 - 130, 460, 260, 52), "SETTINGS",   C_PANEL2, C_PANEL, F_BIG),
+            Button((SCREEN_W // 2 - 130, 530, 260, 52), "EXIT",        C_RED2,   C_RED,   F_BIG),
         ]
         self.orbs = [(random.randint(50, SCREEN_W - 50),
                       random.randint(50, SCREEN_H - 50),
                       random.uniform(0, math.pi * 2),
                       random.uniform(0.5, 2),
                       random.choice([C_GREEN, C_PURPLE, C_GOLD, C_CYAN])) for _ in range(18)]
+
+        # Load logo gambar
+        self._logo = None
+        try:
+            import os
+            logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     "assets", "images", "logo.png")
+            if os.path.isfile(logo_path):
+                raw = pygame.image.load(logo_path).convert_alpha()
+                logo_w = 640
+                logo_h = int(raw.get_height() * logo_w / raw.get_width())
+                self._logo = pygame.transform.scale(raw, (logo_w, logo_h))
+        except Exception as e:
+            print(f"[Menu] Logo load failed: {e}")
 
     def update(self, events):
         self.tick += 1
@@ -911,11 +925,27 @@ class MenuScreen:
             alpha_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
             pygame.draw.circle(alpha_surf, (*col, 80), (10, 10), 10)
             screen.blit(alpha_surf, (int(x) - 10, int(y) - 10))
-        glow = abs(math.sin(self.tick * 0.04))
-        title_col = lerp_color(C_GREEN, C_CYAN, glow)
-        draw_text_centered(screen, "MONSTERA", F_TITLE, title_col, SCREEN_W // 2, 170)
-        draw_text_centered(screen, "ECLIPSE",  F_TITLE, lerp_color(C_PURPLE, C_RED, glow), SCREEN_W // 2, 240)
-        draw_text_centered(screen, "[ Turn-Based RPG ]", F_SMALL, C_GRAY, SCREEN_W // 2, 295)
+        # Gambar logo atau fallback teks
+        if self._logo:
+            glow = abs(math.sin(self.tick * 0.04))
+            # Efek glow pulse: buat logo sedikit terang-redup
+            logo_copy = self._logo.copy()
+            alpha = int(200 + 55 * glow)
+            logo_copy.set_alpha(alpha)
+            lx = SCREEN_W // 2 - self._logo.get_width() // 2
+            ly = 60
+            # Shadow di bawah logo
+            shadow = pygame.Surface((self._logo.get_width(), self._logo.get_height()), pygame.SRCALPHA)
+            shadow.blit(self._logo, (0, 0))
+            shadow.set_alpha(60)
+            screen.blit(shadow, (lx + 4, ly + 8))
+            screen.blit(logo_copy, (lx, ly))
+        else:
+            glow = abs(math.sin(self.tick * 0.04))
+            title_col = lerp_color(C_GREEN, C_CYAN, glow)
+            draw_text_centered(screen, "MONSTERA", F_TITLE, title_col, SCREEN_W // 2, 170)
+            draw_text_centered(screen, "ECLIPSE",  F_TITLE, lerp_color(C_PURPLE, C_RED, glow), SCREEN_W // 2, 240)
+        draw_text_centered(screen, "[ Turn-Based RPG ]", F_SMALL, C_GRAY, SCREEN_W // 2, 360)
         for b in self.buttons:
             b.draw(screen)
         draw_text_centered(screen, "(c) Monstera Eclipse Team", F_TINY, C_GRAY2, SCREEN_W // 2, SCREEN_H - 20)
@@ -1096,37 +1126,83 @@ class BattleScreen:
 
     def _build_layout(self):
         """
-        Layout tanpa kotak: hero di sisi KIRI, musuh di sisi KANAN.
-        Rect hanya dipakai sebagai zona klik & acuan posisi sprite — tidak ada
-        kotak yang digambar. Sprite langsung tampil di atas background.
-
-        Zona vertikal:
-          y=55  -> y=SCREEN_H-270  : arena karakter
-          y=SCREEN_H-265 ke bawah : skill panel
+        Layout formasi:
+          HERO  (kiri) : 3 hero → segitiga (warrior depan, mage+healer belakang)
+          ENEMY (kanan): 2→baris, 3→segitiga, 4→persegi
         """
         arena_top    = 55
-        arena_bottom = SCREEN_H - 110   # lebih pendek dari sebelumnya (skill di bawah)
-        arena_h      = arena_bottom - arena_top
+        arena_bottom = SCREEN_H - 110
+        arena_cy     = (arena_top + arena_bottom) // 2 + 80   # digeser ke bawah agar nempel tanah
+        hw, hh       = 100, 110
 
-        # ── HERO di kiri-tengah ─────────────────────────────────────────────
-        hw, hh = 110, 120   # zona klik per hero (tidak digambar)
-        n_h    = len(self.heroes)
-        total_hero_h = n_h * hh + (n_h - 1) * 14
-        hero_start_y = arena_top + (arena_h - total_hero_h) // 2
-        hero_x       = 20   # sedikit lebih ke kiri
-        for i in range(n_h):
-            y = hero_start_y + i * (hh + 14)
-            self.hero_rects.append(pygame.Rect(hero_x, y, hw, hh))
+        # ── HERO — formasi segitiga (selalu 3) ──────────────────────────────
+        # Warrior [0] : paling depan (kanan dalam sisi kiri) di tengah vertikal
+        # Mage    [1] : belakang-atas
+        # Healer  [2] : belakang-bawah
+        #
+        #   [1] Mage      (x_back, cy - gap_v)
+        #   [0] Warrior   (x_front, cy)          ← ujung segitiga menghadap musuh
+        #   [2] Healer    (x_back, cy + gap_v)
+        #
+        x_front  = 160   # Warrior — lebih dekat ke tengah layar
+        x_back   = 60    # Mage & Healer — agak ke kiri
+        gap_v    = 110   # jarak vertikal antar back row
 
-        # ── ENEMY di kanan-tengah ───────────────────────────────────────────
-        ew, eh = 110, 115   # zona klik per musuh
+        positions_h = [
+            (x_front, arena_cy),           # [0] Warrior  — depan tengah
+            (x_back,  arena_cy - gap_v),   # [1] Mage     — belakang atas
+            (x_back,  arena_cy + gap_v),   # [2] Healer   — belakang bawah
+        ]
+        for i in range(len(self.heroes)):
+            px, py = positions_h[i] if i < len(positions_h) else (x_back, arena_cy)
+            self.hero_rects.append(pygame.Rect(px - hw//2, py - hh//2, hw, hh))
+
+        # ── ENEMY — formasi dinamis ──────────────────────────────────────────
+        ew, eh = 100, 110
         n_e    = len(self.enemies)
-        total_enemy_h = n_e * eh + (n_e - 1) * 14
-        enemy_start_y = arena_top + (arena_h - total_enemy_h) // 2
-        enemy_x       = SCREEN_W - ew - 20
+
+        # Zona kanan: x dari SCREEN_W-180 s/d SCREEN_W-60
+        x_front_e = SCREEN_W - 170   # baris depan (menghadap hero)
+        x_back_e  = SCREEN_W - 70    # baris belakang
+
+        if n_e == 1:
+            # Satu musuh di tengah
+            positions_e = [(x_front_e, arena_cy)]
+
+        elif n_e == 2:
+            # Dua musuh: berjajar vertikal di depan
+            positions_e = [
+                (x_front_e, arena_cy - 70),
+                (x_front_e, arena_cy + 70),
+            ]
+
+        elif n_e == 3:
+            # Segitiga: 1 depan tengah, 2 belakang atas-bawah
+            #   [0] depan-tengah
+            #   [1] belakang-atas
+            #   [2] belakang-bawah
+            positions_e = [
+                (x_front_e, arena_cy),
+                (x_back_e,  arena_cy - 100),
+                (x_back_e,  arena_cy + 100),
+            ]
+
+        else:
+            # 4 musuh: persegi 2×2
+            #   [0] kiri-atas    [1] kiri-bawah   (baris depan)
+            #   [2] kanan-atas   [3] kanan-bawah  (baris belakang)
+            gap_x = 95
+            gap_y = 100
+            positions_e = [
+                (x_front_e,          arena_cy - gap_y // 2),
+                (x_front_e,          arena_cy + gap_y // 2 + 40),
+                (x_front_e - gap_x,  arena_cy - gap_y // 2),
+                (x_front_e - gap_x,  arena_cy + gap_y // 2 + 40),
+            ]
+
         for i in range(n_e):
-            y = enemy_start_y + i * (eh + 14)
-            self.enemy_rects.append(pygame.Rect(enemy_x, y, ew, eh))
+            px, py = positions_e[i] if i < len(positions_e) else (x_front_e, arena_cy)
+            self.enemy_rects.append(pygame.Rect(px - ew//2, py - eh//2, ew, eh))
 
     def _available_heroes(self):
         return [h for h in self.heroes if h.alive and h not in self.acted_heroes]
@@ -1482,23 +1558,11 @@ class BattleScreen:
     # ── ARENA BACKGROUND ─────────────────────────────────────────────────────
     def _draw_arena(self):
         bg = asset_manager.get_background()
-        if not bg:
-            # Load langsung jika asset_manager gagal
-            import os
-            bg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                   "assets", "images", "backgrounds", "battle_bg")
-            if os.path.isfile(bg_path):
-                raw = pygame.image.load(bg_path).convert()
-                bg = pygame.transform.scale(raw, (SCREEN_W, SCREEN_H))
-                # Simpan ke asset_manager agar tidak load ulang tiap frame
-                asset_manager._bg = bg
-
         if bg:
             screen.blit(bg, (0, 0))
             ov = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
             ov.fill((0, 0, 0, 55))
             screen.blit(ov, (0, 0))
-
         arena_mid_y = (55 + SCREEN_H - 110) // 2
         pygame.draw.line(screen, (30, 45, 30),
                          (160, arena_mid_y), (SCREEN_W - 160, arena_mid_y), 1)
