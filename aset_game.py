@@ -1,26 +1,7 @@
-"""
-aset_game.py — Asset & Animation Manager untuk Monstera Eclipse.
-
-Sistem ini mendukung DUA mode per karakter:
-  1. Sprite sheet  : satu PNG berisi banyak frame (kolom = frame, baris = state)
-  2. Fallback icon : emoji/teks jika file PNG tidak ditemukan
-
-Format sprite sheet yang dipakai:
-  - Setiap baris = 1 state: 0=idle, 1=run, 2=attack, 3=hurt, 4=die
-  - Setiap kolom = 1 frame
-
-State index:
-  IDLE    = 0
-  RUN     = 1
-  ATTACK  = 2
-  HURT    = 3
-  DIE     = 4
-"""
-
 import pygame
 import os
 
-# ── State constants ───────────────────────────────────────────────────────────
+# State constants
 ANIM_IDLE   = 0
 ANIM_RUN    = 1
 ANIM_ATTACK = 2

@@ -1,6 +1,3 @@
-"""Logic game MONSTERA ECLIPSE: class karakter, battle engine, dan screen.
-"""
-
 import pygame
 import sys
 import random
@@ -10,7 +7,7 @@ from config import *
 from aset_game import asset_manager, ANIM_IDLE, ANIM_RUN, ANIM_ATTACK, ANIM_HURT, ANIM_DIE
 from sfx_manager import sfx
 
-# ─── PARTICLE SYSTEM ─────────────────────────────────────────────────────────
+# PARTICLE SYSTEM
 class Particle:
     def __init__(self, x, y, color, vx=None, vy=None, life=None, size=None):
         self.x = x
@@ -51,22 +48,10 @@ def update_particles(surf):
         if p.life <= 0:
             particles.remove(p)
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 #  LEVEL SYSTEM
-# ══════════════════════════════════════════════════════════════════════════════
 
 class LevelSystem:
-    """
-    Mengelola level/wave saat ini, scaling difficulty musuh,
-    dan reward HP heal untuk hero setelah menang.
 
-    Scaling bertahap:
-      - Level 1–3  : Tier 1, 2–3 musuh, mix Shadow/DarkMage
-      - Level 4–6  : Tier 2, 3–4 musuh, mulai ada musuh campuran
-      - Level 7–9  : Tier 3, 4 musuh, semua kuat
-      - Level 10+  : Tier 4+, 4 musuh, elite mode — enemy boss ikut muncul
-    """
     MAX_LEVELS = 12  # setelah ini dianggap "clear game"
 
     def __init__(self):
@@ -75,12 +60,10 @@ class LevelSystem:
 
     @property
     def tier(self) -> int:
-        """Tier musuh naik setiap 3 level."""
         return min(4, (self.current_level - 1) // 3 + 1)
 
     @property
     def enemy_count(self) -> int:
-        """Jumlah musuh: 2 di level 1, max 4 setelah level 3."""
         if self.current_level == 1:
             return 2
         elif self.current_level == 2:
@@ -90,7 +73,6 @@ class LevelSystem:
 
     @property
     def heal_percent(self) -> float:
-        """Persentase HP max yang dipulihkan setelah menang (0.0–1.0)."""
         # Makin tinggi level, makin sedikit heal reward
         if self.current_level <= 3:
             return 0.40
@@ -103,7 +85,6 @@ class LevelSystem:
 
     @property
     def enemy_pool(self) -> list:
-        """Kelas musuh yang tersedia di level ini."""
         if self.current_level <= 3:
             return [Shadow, DarkMage]
         elif self.current_level <= 6:
@@ -114,7 +95,6 @@ class LevelSystem:
             return [DarkMage, BossEclipse, BossEclipse]  # Level elite
 
     def generate_enemies(self) -> list:
-        """Generate daftar musuh sesuai level saat ini."""
         pool  = self.enemy_pool
         count = self.enemy_count
         tier  = self.tier
@@ -125,7 +105,6 @@ class LevelSystem:
         return enemies
 
     def apply_post_win_heal(self, heroes: list):
-        """Pulihkan sebagian HP hero setelah menang satu level."""
         pct = self.heal_percent
         for hero in heroes:
             if hero.alive:
@@ -133,7 +112,6 @@ class LevelSystem:
                 hero.heal(amount)
 
     def advance(self):
-        """Naik ke level berikutnya."""
         self.current_level += 1
 
     @property
@@ -148,16 +126,10 @@ class LevelSystem:
         stars = min(5, 1 + (self.current_level - 1) // 2)
         return "*" * stars + "." * (5 - stars)
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 #  ABSTRACTION & INHERITANCE — Base Classes
-# ══════════════════════════════════════════════════════════════════════════════
 
 class Character:
-    """
-    [ABSTRACTION] Base abstract class untuk semua karakter.
-    [ENCAPSULATION] Semua atribut diakses melalui property/method.
-    """
+
     def __init__(self, name: str, max_hp: int, attack: int,
                  defense: int, speed: int, color: tuple):
         self._name    = name
@@ -224,10 +196,7 @@ class Skill:
         self.color       = color
         self.icon        = icon
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 #  HERO CLASSES
-# ══════════════════════════════════════════════════════════════════════════════
 
 class Hero(Character):
     def __init__(self, name, max_hp, attack, defense, speed, color, role):
@@ -342,10 +311,7 @@ class Healer(Hero):
                 result["particles"].append((t, sk.color))
         return result
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 #  ENEMY CLASSES
-# ══════════════════════════════════════════════════════════════════════════════
 
 class Enemy(Character):
     def __init__(self, name, max_hp, attack, defense, speed, color, tier=1):
@@ -429,10 +395,7 @@ class DarkMage(Enemy):
 
 
 class BossEclipse(Enemy):
-    """
-    [INHERITANCE + POLYMORPHISM] Boss Golem raksasa — muncul di level 7+.
-    Punya 4 fase: Normal -> Enraged (HP<60%) -> Berserk (HP<30%) -> Desperate (HP<15%)
-    """
+
     def __init__(self, tier=3):
         mult = 1 + (tier - 1) * 0.35
         super().__init__(f"Frost Titan Lv{tier}",
@@ -549,9 +512,7 @@ class BossEclipse(Enemy):
                 target = min(alive, key=lambda h: h.hp)
                 return self.use_skill(0, [target], [])
 
-# ══════════════════════════════════════════════════════════════════════════════
 #  BATTLE ENGINE
-# ══════════════════════════════════════════════════════════════════════════════
 
 class BattleEngine:
     def __init__(self, heroes: list, enemies: list):
@@ -601,10 +562,7 @@ class BattleEngine:
         self.check_winner()
         return res
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 #  UI COMPONENTS
-# ══════════════════════════════════════════════════════════════════════════════
 
 class Button:
     def __init__(self, rect, text, color, hover_color, font=None, text_color=C_WHITE, radius=12):
@@ -717,20 +675,10 @@ class HPBar:
         surf.blit(hp_text, (self.x + self.w // 2 - hp_text.get_width() // 2,
                              self.y + self.h // 2 - hp_text.get_height() // 2))
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 #  LEVEL UP SCREEN — Transisi setelah menang
-# ══════════════════════════════════════════════════════════════════════════════
 
 class LevelUpScreen:
-    """
-    Layar transisi setelah hero menang satu level.
-    Menampilkan:
-      - Level yang baru saja dilewati
-      - HP yang dipulihkan per hero
-      - Preview kesulitan level berikutnya
-      - Tombol lanjut ke level berikutnya
-    """
+
     def __init__(self, level_system: LevelSystem, heroes: list, heal_log: list):
         self.level_system = level_system
         self.heroes    = heroes
@@ -812,7 +760,7 @@ class LevelUpScreen:
 
 
 class GameClearScreen:
-    """Layar khusus jika player berhasil clear semua 12 level."""
+
     def __init__(self):
         self.tick = 0
         self.back_btn = Button((SCREEN_W // 2 - 120, SCREEN_H - 80, 240, 50),
@@ -845,10 +793,7 @@ class GameClearScreen:
         update_particles(screen)
         self.back_btn.draw(screen)
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 #  GAME SCREENS
-# ══════════════════════════════════════════════════════════════════════════════
 
 def get_character_asset_key(char):
     if isinstance(char, Warrior):    return "warrior"
@@ -1062,17 +1007,10 @@ class PartySelectScreen:
             draw_text_centered(screen, "Tim harus berisi 3 hero", F_MED, C_GRAY, SCREEN_W // 2, SCREEN_H - 46)
         self.back_btn.draw(screen)
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 #  BATTLE SCREEN — dengan level_system
-# ══════════════════════════════════════════════════════════════════════════════
 
 class BattleScreen:
-    """
-    Battle screen yang sekarang menerima LevelSystem.
-    Setelah menang -> kirim sinyal ke main loop untuk ke LevelUpScreen.
-    Setelah kalah  -> kirim sinyal ke menu.
-    """
+
     def __init__(self, heroes: list, level_system: LevelSystem):
         self.heroes       = heroes
         self.level_system = level_system
@@ -1102,7 +1040,7 @@ class BattleScreen:
         self.enemy_turn_index  = 0
         self.last_actor        = None
 
-        # ── Charge animation (Warrior maju ke musuh) ──────────────────────
+        # Charge animation (Warrior maju ke musuh)
         # anim_charge_hero  : hero yang sedang charge
         # anim_charge_target: center (x,y) musuh tujuan
         # anim_charge_phase : "charge" | "hold" | "return" | None
@@ -1125,39 +1063,26 @@ class BattleScreen:
         return self.level_system.generate_enemies()
 
     def _build_layout(self):
-        """
-        Layout formasi:
-          HERO  (kiri) : 3 hero → segitiga (warrior depan, mage+healer belakang)
-          ENEMY (kanan): 2→baris, 3→segitiga, 4→persegi
-        """
+
         arena_top    = 55
         arena_bottom = SCREEN_H - 110
-        arena_cy     = (arena_top + arena_bottom) // 2 + 80   # digeser ke bawah agar nempel tanah
+        arena_cy     = (arena_top + arena_bottom) // 2 + 80
         hw, hh       = 100, 110
 
-        # ── HERO — formasi segitiga (selalu 3) ──────────────────────────────
-        # Warrior [0] : paling depan (kanan dalam sisi kiri) di tengah vertikal
-        # Mage    [1] : belakang-atas
-        # Healer  [2] : belakang-bawah
-        #
-        #   [1] Mage      (x_back, cy - gap_v)
-        #   [0] Warrior   (x_front, cy)          ← ujung segitiga menghadap musuh
-        #   [2] Healer    (x_back, cy + gap_v)
-        #
-        x_front  = 160   # Warrior — lebih dekat ke tengah layar
-        x_back   = 60    # Mage & Healer — agak ke kiri
-        gap_v    = 110   # jarak vertikal antar back row
+        x_front  = 160
+        x_back   = 60
+        gap_v    = 110
 
         positions_h = [
-            (x_front, arena_cy),           # [0] Warrior  — depan tengah
-            (x_back,  arena_cy - gap_v),   # [1] Mage     — belakang atas
-            (x_back,  arena_cy + gap_v),   # [2] Healer   — belakang bawah
+            (x_front, arena_cy),
+            (x_back,  arena_cy - gap_v),
+            (x_back,  arena_cy + gap_v),
         ]
         for i in range(len(self.heroes)):
             px, py = positions_h[i] if i < len(positions_h) else (x_back, arena_cy)
             self.hero_rects.append(pygame.Rect(px - hw//2, py - hh//2, hw, hh))
 
-        # ── ENEMY — formasi dinamis ──────────────────────────────────────────
+        # ENEMY  formasi dinamis
         ew, eh = 100, 110
         n_e    = len(self.enemies)
 
@@ -1287,7 +1212,7 @@ class BattleScreen:
         if self.phase == "anim":
             self.anim_timer -= 1
 
-            # ── Update charge animation offset ───────────────────────────
+            # Update charge animation offset
             self._update_charge_anim()
 
             if self.anim_timer <= 0:
@@ -1371,7 +1296,7 @@ class BattleScreen:
         self.turn_label  = "player"
         self.phase       = "anim"
 
-        # ── Trigger animasi attack pada hero ─────────────────────────────
+        # Trigger animasi attack pada hero
         anim_h = asset_manager.get_animator(hero, get_character_asset_key(hero) or "warrior")
         if anim_h:
             anim_h.set_state(ANIM_ATTACK, one_shot=True)
@@ -1383,7 +1308,7 @@ class BattleScreen:
                     if anim_e:
                         anim_e.set_state(ANIM_HURT, one_shot=True)
 
-        # ── Charge animation: Warrior maju ke musuh saat attack/aoe ──────
+        # Charge animation: Warrior maju ke musuh saat attack/aoe
         hero_idx = self.heroes.index(hero)
         if isinstance(hero, Warrior) and sk.skill_type in ("attack", "aoe"):
             # Hitung target posisi: tengah musuh (atau rata-rata semua musuh jika AOE)
@@ -1415,14 +1340,7 @@ class BattleScreen:
                 anim_w.set_state(ANIM_RUN)
 
     def _update_charge_anim(self):
-        """
-        Update offset posisi Warrior saat animasi charge ke musuh.
 
-        Timeline (total ~55 frame):
-          charge  : frame 0–14  -> maju cepat ke arah musuh
-          hold    : frame 15–24 -> diam sejenak di posisi musuh (impact!)
-          return  : frame 25–54 -> balik ke posisi asal secara smooth
-        """
         if self.anim_charge_phase is None or self.anim_charge_hero is None:
             return
 
@@ -1457,7 +1375,7 @@ class BattleScreen:
                 self.anim_charge_timer  = 0
 
         elif self.anim_charge_phase == "hold":
-            # Diam di posisi impact — efek shake kecil
+            # Diam di posisi impact  efek shake kecil
             shake = int(math.sin(t * 1.8) * 3)
             self.anim_hero_offset[hidx] = (reach_x + shake, reach_y)
             if t >= 10:
@@ -1475,7 +1393,6 @@ class BattleScreen:
                 self._reset_charge_anim()
 
     def _reset_charge_anim(self):
-        """Bersihkan semua state charge animation."""
         if self.anim_charge_hero is not None:
             self.anim_hero_offset.pop(self.anim_charge_hero, None)
         self.anim_charge_hero   = None
@@ -1516,7 +1433,7 @@ class BattleScreen:
             pos = self._get_char_center(char)
             spawn_particles(pos[0], pos[1], col, count=18)
 
-        # ── Trigger animasi attack musuh & hurt hero ──────────────────────
+        # Trigger animasi attack musuh & hurt hero
         anim_e = asset_manager.get_animator(enemy, get_character_asset_key(enemy) or "shadow")
         if anim_e:
             anim_e.set_state(ANIM_ATTACK, one_shot=True)
@@ -1555,7 +1472,7 @@ class BattleScreen:
         if self.phase == "result":
             self._draw_result()
 
-    # ── ARENA BACKGROUND ─────────────────────────────────────────────────────
+    # ARENA BACKGROUND
     def _draw_arena(self):
         bg = asset_manager.get_background()
         if bg:
@@ -1635,7 +1552,7 @@ class BattleScreen:
                                               (sprite_cx, sprite_cy),
                                               sprite_size, F_BIG, flip=True)
 
-            # ── Floating HUD di bawah sprite ────────────────────────────────
+            # Floating HUD di bawah sprite
             bar_y = sprite_cy + sprite_size[1]//2 - 4
             bar_w = 104
             bar_h = 10
@@ -1664,7 +1581,7 @@ class BattleScreen:
             already_acted = hero in self.acted_heroes
             ox, oy        = self.anim_hero_offset.get(i, (0, 0))
 
-            # Sprite center — sprite berdiri bebas di atas arena, tanpa kotak
+            # Sprite center — sprite berdiri bebas di atas arena
             sprite_cx = rect.centerx + ox
             sprite_cy = rect.centery - 10 + oy
 
@@ -1718,7 +1635,7 @@ class BattleScreen:
                                               (sprite_cx, sprite_cy),
                                               sprite_size, F_MED)
 
-            # ── Floating HUD di bawah sprite ────────────────────────────────
+            # Floating HUD di bawah sprite
             bar_y  = sprite_cy + sprite_size[1]//2 - 4
             bar_w  = 110
             bar_h  = 10
@@ -1759,9 +1676,7 @@ class BattleScreen:
         pygame.draw.line(screen, C_GOLD, (0, bar_h - 1), (SCREEN_W, bar_h - 1), 1)
 
         phase_text = {
-            "player_turn": "GILIRANMU — Pilih Hero & Skill",
-            "anim":        "Menunggu aksi...",
-            "result":      "Pertarungan selesai",
+
         }.get(self.phase, "")
 
         col = C_GREEN if self.phase == "player_turn" else C_GOLD
@@ -1789,7 +1704,7 @@ class BattleScreen:
         # Battle log di pojok KANAN ATAS
         lw, lh = 300, 150
         lx = SCREEN_W - lw - 8
-        ly = 55  # tepat di bawah top HUD bar
+        ly = 55
 
         # Panel with slight blur background
         bg = pygame.Surface((lw, lh), pygame.SRCALPHA)
@@ -1811,7 +1726,7 @@ class BattleScreen:
             screen.blit(txt, (lx + 8, ly + 24 + i * 22))
 
     def _draw_skills(self):
-        # ── Status karakter: pojok KIRI ATAS, kecil & compact ────────────────
+        # Status karakter: pojok KIRI ATAS, kecil & compact
         self._draw_hero_status_panel()
 
         if self.phase != "player_turn":
@@ -1820,7 +1735,7 @@ class BattleScreen:
         if not hero:
             return
 
-        # ── Skill buttons di BAWAH TENGAH ────────────────────────────────────
+        # Skill buttons di BAWAH TENGAH
         # Semi-transparent backdrop untuk area skill
         skill_backdrop = pygame.Surface((SCREEN_W, 110), pygame.SRCALPHA)
         skill_backdrop.fill((5, 4, 15, 180))
@@ -1835,11 +1750,11 @@ class BattleScreen:
                            F_TINY, (100, 110, 140), SCREEN_W // 2, SCREEN_H - 12)
 
     def _draw_hero_status_panel(self):
-        """Status karakter di pojok kiri atas — compact mini panel."""
+
         hero = self._current_hero()
         panel_w = 200
         panel_x = 8
-        panel_y = 55  # tepat di bawah top HUD
+        panel_y = 55
         row_h   = 36
         n       = len(self.heroes)
         panel_h = n * row_h + 8
@@ -1914,7 +1829,7 @@ class BattleScreen:
             a = int(20 * glow * (r / 240))
             pygame.draw.circle(g_surf, (*gc, a), (250, 250), r)
         screen.blit(g_surf, (SCREEN_W//2 - 250, SCREEN_H//2 - 280))
-        title = "🌿 LEVEL CLEAR!" if won else "🌑 ECLIPSE MENANG!"
+        title = " LEVEL CLEAR!" if won else " ECLIPSE MENANG!"
         msg   = "Klik untuk lanjut..." if won else "Kegelapan menyelimuti dunia..."
         col   = C_GREEN if won else C_RED
         box   = pygame.Rect(SCREEN_W // 2 - 270, SCREEN_H // 2 - 120, 540, 240)

@@ -1,8 +1,3 @@
-"""
-sfx_manager.py — Sound Effects Manager untuk Monstera Eclipse.
-Load semua SFX satu kali, play kapanpun dibutuhkan.
-"""
-
 import pygame
 import os
 
